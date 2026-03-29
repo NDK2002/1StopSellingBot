@@ -58,7 +58,8 @@ async def send_escalation_notification(
     lines.append(f"🆔 <b>Session:</b> <code>{session_id[:8]}...</code>")
 
     if deep_link:
-        lines.append(f"\n🔗 Mở hội thoại:\n{deep_link}")
+        # Wrap deep link in anchor tag so Telegram doesn't break the URL at '?' on mobile wrap
+        lines.append(f"\n🔗 Mở hội thoại:\n<a href='{deep_link}'>{deep_link}</a>")
 
     message = "\n".join(lines)
 

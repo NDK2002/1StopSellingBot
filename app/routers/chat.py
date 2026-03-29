@@ -47,16 +47,23 @@ async def chat(req: ChatRequest):
         ).execute()
 
         # Add to ADK session history so bot doesn't lose context
-        from google.adk.events.event import Event
-        session = await session_service.get_session("1StopSellingBot", "default_user", session_id)
-        if session:
-            await session_service.append_event(
-                session,
-                Event(
-                    author="user",
-                    content=types.Content(role="user", parts=[types.Part(text=req.message)])
-                )
+        try:
+            from google.adk.events.event import Event
+            session = await session_service.get_session(
+                app_name="1StopSellingBot", 
+                user_id="default_user", 
+                session_id=session_id
             )
+            if session:
+                await session_service.append_event(
+                    session,
+                    Event(
+                        author="user",
+                        content=types.Content(role="user", parts=[types.Part(text=req.message)])
+                    )
+                )
+        except Exception as e:
+            print(f"Warning: Failed to inject user message into ADK session: {e}")
 
         return ChatResponse(
             reply="Nhân viên đang hỗ trợ bạn. Vui lòng chờ phản hồi.",
@@ -135,3 +142,33 @@ async def reset_session(session_id: str):
     supabase.table("conversations").delete().eq("session_id", session_id).execute()
 
     return {"message": "Session reset", "session_id": session_id}
+
+
+@router.get("/sessions/{session_id}/debug")
+async def debug_session(session_id: str):
+    """Debug endpoint to view the internal memory of ADK."""
+    session = await session_service.get_session(
+        app_name="1StopSellingBot", 
+        user_id="default_user", 
+        session_id=session_id
+    )
+    if not session:
+        return {"error": "Session is not loaded in memory (or missing)."}
+    
+    events = []
+    for idx, e in enumerate(session.events):
+        text = ""
+        if e.content and e.content.parts:
+            text = e.content.parts[-1].text or ""
+        
+        events.append({
+            "index": idx,
+            "author": e.author,
+            "text": text,
+        })
+    
+    return {
+        "session_id": session_id,
+        "event_count": len(events),
+        "events": events
+    }

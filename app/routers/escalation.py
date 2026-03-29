@@ -153,15 +153,19 @@ async def staff_reply(escalation_id: str, msg: TakeoverMessage):
         from google.adk.events.event import Event
         from google.genai import types
 
-        session = await session_service.get_session("1StopSellingBot", "default_user", msg.session_id)
+        session = await session_service.get_session(
+            app_name="1StopSellingBot", 
+            user_id="default_user", 
+            session_id=msg.session_id
+        )
         if session:
             await session_service.append_event(
                 session,
                 Event(
-                    author="assistant",
+                    author="user",
                     content=types.Content(
-                        role="assistant", 
-                        parts=[types.Part(text=f"[Nhân viên tư vấn]: {msg.message}")]
+                        role="user", 
+                        parts=[types.Part(text=f"[Hệ thống cập nhật: Nhân viên người thật đã vào hỗ trợ và chat nội dung sau]: {msg.message}")]
                     )
                 )
             )

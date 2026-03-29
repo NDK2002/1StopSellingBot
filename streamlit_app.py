@@ -97,7 +97,7 @@ def _render_session_viewer(session_id: str):
     st.divider()
 
     # Fetch and display conversation history in a realtime fragment
-    @st.fragment(run_every=None)
+    @st.fragment(run_every="3s")
     def render_staff_chat_history():
         try:
             resp = httpx.get(
@@ -222,7 +222,7 @@ def _render_chat_ui():
                 st.rerun()
 
     # ── Chat History
-    @st.fragment(run_every=None if st.session_state.get("is_escalated") else None)
+    @st.fragment(run_every="3s" if st.session_state.get("is_escalated") else None)
     def render_history():
         if st.session_state.get("is_escalated"):
             try:
