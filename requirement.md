@@ -9,8 +9,13 @@
 |---|---|
 | Preact + Vite | Chatbot widget nhúng, hỗ trợ embed nhiều nền tảng |
 | Shadow DOM | Cô lập CSS của widget với website host |
-| React + Vite + TypeScript | Admin Panel UI |
-| shadcn/ui | Component library cho Admin Panel |
+| Vite + React 19 + TypeScript | Core SPA framework tốc độ siêu nhanh (Hot-reload mili-giây) |
+| Tailwind CSS v4 + shadcn/ui | Hệ thống Styling copy-paste, Accessible (không bị khoá vào UI lib) |
+| TanStack Router | Định tuyến an toàn kiểu (Type-safe) mạnh mẽ, cấm lỗi URL |
+| TanStack Query v5 (React Query) | Gọi API bất đồng bộ, Cache thông minh, Auto Re-fetch |
+| Zustand | Quản lý Global State siêu nhẹ (Theme, Session, Token) |
+| React Hook Form + Zod | Khởi tạo Form và check Schema Validation Type-safe |
+| Lucide React | Hệ sinh thái Icon SVG gọn nhẹ cho UI |
 
 ### Backend
 | Công nghệ | Vai trò |
@@ -22,15 +27,15 @@
 | text-embedding-004 | Tạo embedding cho RAG pipeline |
 | Docling | Parse file PDF/DOCX/CSV khi import RAG |
 | aiogram | Telegram Bot nội bộ |
-| Celery | Worker xử lý background jobs |
-| Celery Beat | Periodic jobs như SLA check, usage metering |
+| Procrastinate | Xử lý background jobs nội bộ bằng Postgres (Phase 3.1) |
+| Taskiq + Redis | Lên lịch định kỳ (Periodic jobs) SLA check, usage metering (Phase 4.1) |
 
 ### Admin / Business Backend
 | Công nghệ | Vai trò |
 |---|---|
 | FastAPI | Admin Panel backend — CRUD, auth, RBAC |
 | WebSockets (FastAPI) | Realtime inbox Admin Panel |
-| Celery / Redis | Jobs nội bộ background |
+| Procrastinate / Taskiq | Jobs nội bộ background và Scheduled jobs |
 
 ### Database & Storage
 | Công nghệ | Vai trò |
@@ -112,7 +117,7 @@
 | React + Vite + shadcn/ui | Admin Panel UI |
 | FastAPI | Admin Panel Backend, RBAC, Realtime inbox |
 | aiogram | Telegram Bot nội bộ |
-| Celery + RabbitMQ | Background jobs |
+| Procrastinate / Taskiq | Background jobs và Scheduling |
 | Stripe | Billing |
 | Cloudflare API | Provision subdomain tenant |
 
@@ -328,22 +333,74 @@ Sau khi MVP ổn định, bổ sung cơ chế human handoff.
 ## Phase 3 — Admin Panel & Production UI (4–5 tuần)
 
 ### Mục tiêu
-Thay Streamlit bằng giao diện vận hành production.
+Thay Streamlit bằng giao diện vận hành production, đồng thời cung cấp đầy đủ công cụ quản lý dữ liệu (Product, Inventory, Order, RAG, Staff) cho doanh nghiệp.
 
 ### Công nghệ sử dụng
 | Công nghệ | Mục đích |
 |---|---|
+| JWT Auth | Xác thực và phân quyền (Admin / Staff) |
 | FastAPI | Backend Admin Panel & RBAC |
-| React + Vite + shadcn/ui | UI Admin Panel |
 | WebSockets (FastAPI) | Realtime inbox |
-| Preact + Vite | Widget production để embed |
+| Vite + React 19 | Build tool & Client-side Framework tốc độ cao |
+| Tailwind v4 + shadcn/ui | Thư viện Component Headless, tuỳ biến mã nguồn |
+| TanStack Router | Type-safe Routing chống lỗi 404 |
+| TanStack Query v5 | Cache dữ liệu & fetching API tự động mượt mà |
+| Zustand | Global State siêu tối giản thay thế Redux |
+| React Hook Form + Zod | Quản lý Validation Form 100% Type-safe, ko giật lag |
 | Supabase Storage | RAG upload |
-| Celery + RabbitMQ | Background processing |
 
 ### Phạm vi
-- `/conversations` cho takeover.
-- `/config/chatbot`, `/config/rag`, `/config/staff`, `/config/widget`.
-- Widget production-ready thay cho Streamlit.
+- **Xác thực & Phân quyền (Auth & RBAC):** 
+  - Trang Login, phân định quyền hạn Admin (toàn quyền) và Staff (chỉ tiếp nhận và chat xử lý sự cố).
+- **Quản lý Dữ liệu Kinh doanh (CRUD UI):**
+  - `/products`: Quản lý danh mục, thêm/sửa/xoá, kích hoạt trigger tạo embedding tự động.
+  - `/inventory`: Quản lý số lượng tồn kho và danh sách cảnh báo *low-stock*.
+  - `/orders`: Kiểm tra lịch sử mua hàng, theo dõi đơn đặt hàng từ chatbot.
+- **Core Chat & Staff (Takeover Inbox):**
+  - `/conversations`: Giao diện Inbox Realtime cho Chatbot Handoff. 
+  - `/config/staff`: Thêm/sửa nhân viên, gán skill, Telegram ID.
+- **Quản lý Khảo thư & AI (RAG & Config):**
+  - `/config/rag`: Upload tài liệu đào tạo (PDF/DOCX/CSV), tích hợp **RAG Sandbox** (ô chat thử nghiệm ẩn để kiểm tra bot đọc tài liệu có chuẩn không).
+  - `/config/chatbot`: Chỉnh sửa Prompt cốt lõi.
+
+---
+
+## Phase 3.1 — Tích hợp Procrastinate + PostgreSQL (1–2 tuần)
+
+### Mục tiêu
+Chuyển đổi các tác vụ nặng (Background Jobs) sang xử lý bất đồng bộ sử dụng chính Database đang có.
+
+### Công nghệ sử dụng
+| Công nghệ | Mục đích |
+|---|---|
+| Procrastinate | Quản lý Task queue trên Postgres |
+| Supabase Postgres | Message Queue (LISTEN/NOTIFY, SKIP LOCKED) |
+
+### Phạm vi
+- Cài đặt Procrastinate kết nối thẳng vào Supabase Postgres hiện có.
+- Trích xuất các tác vụ nặng (như parse file DOCX/PDF RAG, gọi AI API) ra khỏi luồng chính của FastAPI.
+- Vận hành Queue độc lập khỏi API Server để tránh nghẽn.
+
+---
+
+## Phase 3.2 — Chatbot Web Widget (2–3 tuần)
+
+### Mục tiêu
+Phân phối Chatbot AI lên website của doanh nghiệp bằng nền tảng Widget (dạng bong bóng chat nổi) có dung lượng cực nhẹ và dễ dàng nhúng.
+
+### Công nghệ sử dụng
+| Công nghệ | Mục đích |
+|---|---|
+| Preact + Vite | Template code siêu nhẹ để bundle widget |
+| Web Components (Shadow DOM) | Cô lập toàn bộ CSS widget khỏi website của khách hàng |
+| WebSockets / SSE | Stream câu trả lời của AI mượt mà cho trải nghiệm mượt |
+
+### Phạm vi
+- **Phát triển Frontend Widget:**
+  - Giao diện tuỳ biến (`/config/widget` trên admin truyền cấu hình xuống widget): thay icon, text chào mừng, màu sắc brand.
+  - Trình biên dịch tạo mã code rút gọn `<script src="https://YOUR_DOMAIN/widget.js" tenant="id"></script>` để dán lên website.
+  - Nhận diện user khách vãng lai bằng Fingerprint, LocalStorage (giữ Session lỳ lợm qua nhiều link).
+  - Tích hợp Widget vào Production. **Lưu ý:** Vẫn giữ lại app Streamlit làm môi trường Testing/Sandbox nội bộ cho đội ngũ phát triển.
 
 ---
 
@@ -357,7 +414,7 @@ Thay Streamlit bằng giao diện vận hành production.
 |---|---|
 | Supabase Postgres | Lưu event logs |
 | React + Vite + shadcn/ui | Dashboard báo cáo |
-| Celery Beat | SLA check |
+| Taskiq + Redis | SLA check và Periodic Scheduler |
 | aiogram | Notify supervisor |
 
 ### Phạm vi
@@ -365,6 +422,24 @@ Thay Streamlit bằng giao diện vận hành production.
 - FRT, Resolution Time, Missed Rate, CSAT.
 - Dashboard báo cáo.
 - SLA alert.
+
+---
+
+## Phase 4.1 — Triển khai Taskiq + Redis (1–2 tuần)
+
+### Mục tiêu
+Khởi tạo hệ thống Lập lịch định kỳ (Periodic Scheduler) và Xử lý hàng đợi tập trung bằng Redis chuẩn bị cho lúc scale lớn.
+
+### Công nghệ sử dụng
+| Công nghệ | Mục đích |
+|---|---|
+| Taskiq + Redis | Background Worker & Scheduler tốc độ cao |
+| FastAPI | Inject Dependency vào worker |
+
+### Phạm vi
+- Cài đặt Taskiq kết nối qua Redis.
+- Chuyển đổi thuật toán scheduling (ví dụ: định kỳ quét báo cáo SLA, kiểm tra hội thoại quá hạn) sang Taskiq Scheduler.
+- Tối ưu hiệu năng Asyncio bằng Taskiq cho xử lý cường độ lớn mà không bị nghẽn RAM.
 
 ---
 
@@ -379,7 +454,7 @@ Biến hệ thống thành nền tảng dùng cho nhiều doanh nghiệp.
 | Supabase Postgres + RLS | Multi-tenant isolation |
 | FastAPI | Webhook bridge |
 | HMAC-SHA256 | Xác thực webhook |
-| Celery + RabbitMQ | Xử lý webhook async |
+| Taskiq + Redis | Xử lý webhook async tốc độ cao |
 | React + Vite + shadcn/ui | Tenant onboarding + billing UI |
 | Stripe | Subscription và usage metering |
 | Cloudflare API | Provision subdomain |
@@ -399,8 +474,11 @@ Biến hệ thống thành nền tảng dùng cho nhiều doanh nghiệp.
 |---|---|---|
 | Phase 1 | MVP: Streamlit + Google ADK + FastAPI + Supabase | 3–4 tuần |
 | Phase 2 | Escalation + Telegram + Low-stock Alert | 3–4 tuần |
-| Phase 3 | Admin Panel + Production UI/Widget | 4–5 tuần |
+| Phase 3 | Admin Panel (Backend & React UI) | 4–5 tuần |
+| Phase 3.1 | Tích hợp Procrastinate + PostgreSQL Queue | 1–2 tuần |
+| Phase 3.2 | Chatbot Web Widget (Preact) + Embed Code | 2–3 tuần |
 | Phase 4 | Đo lường hiệu suất nhân viên | 3–4 tuần |
+| Phase 4.1 | Taskiq + Redis (Scheduler & High Volume) | 1–2 tuần |
 | Phase 5 | Multi-tenant SaaS Bridge | 6–8 tuần |
 
 ### Tổng thời gian
