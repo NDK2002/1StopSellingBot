@@ -132,3 +132,72 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     session_id: str
+    escalated: bool = False
+
+
+# ── Staff (Phase 2) ──────────────────────────────────────────────────
+class StaffCreate(BaseModel):
+    name: str
+    email: str | None = None
+    telegram_chat_id: str | None = None
+    skills: list[str] = Field(default_factory=list)
+    is_available: bool = True
+    max_concurrent: int = 5
+
+
+class StaffUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    telegram_chat_id: str | None = None
+    skills: list[str] | None = None
+    is_available: bool | None = None
+    max_concurrent: int | None = None
+
+
+class StaffResponse(BaseModel):
+    id: str
+    name: str
+    email: str | None = None
+    telegram_chat_id: str | None = None
+    skills: list[str] = Field(default_factory=list)
+    is_available: bool
+    max_concurrent: int
+    current_load: int
+    created_at: str
+    updated_at: str
+
+
+# ── Escalation (Phase 2) ─────────────────────────────────────────────
+class EscalationCreate(BaseModel):
+    session_id: str
+    reason: str = "low_confidence"
+    skill_required: str | None = None
+    customer_summary: str | None = None
+
+
+class EscalationUpdate(BaseModel):
+    status: str | None = None
+    staff_notes: str | None = None
+
+
+class EscalationResponse(BaseModel):
+    id: str
+    session_id: str
+    staff_id: str | None = None
+    reason: str
+    status: str
+    skill_required: str | None = None
+    priority: int
+    customer_summary: str | None = None
+    staff_notes: str | None = None
+    assigned_at: str | None = None
+    resolved_at: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class TakeoverMessage(BaseModel):
+    """Staff sends a message to customer via admin takeover."""
+    session_id: str
+    message: str
+

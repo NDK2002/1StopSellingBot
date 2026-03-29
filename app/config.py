@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     groq_model: str = "groq/llama-3.3-70b-versatile"
     openrouter_model: str = "openrouter/google/gemini-2.0-flash-lite-001"
+    telegram_bot_token: str = ""
+    jwt_secret: str = "change-me-in-production"
+    app_base_url: str = "http://localhost:8000"
     app_env: str = "development"
     app_host: str = "0.0.0.0"
     app_port: int = 8000

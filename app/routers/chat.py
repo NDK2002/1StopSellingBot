@@ -28,6 +28,22 @@ runner = Runner(
 async def chat(req: ChatRequest):
     """Send a message to the chatbot and get a response."""
     session_id = req.session_id or str(uuid.uuid4())
+    supabase = get_supabase_client()
+
+    # Check if session is under staff takeover
+    active_escalation = supabase.table("escalations").select("id, status").eq(
+        "session_id", session_id
+    ).eq("status", "in_progress").execute()
+    if active_escalation.data:
+        # Save user message for staff to see
+        supabase.table("conversations").insert(
+            {"session_id": session_id, "role": "user", "content": req.message}
+        ).execute()
+        return ChatResponse(
+            reply="Nhân viên đang hỗ trợ bạn. Vui lòng chờ phản hồi.",
+            session_id=session_id,
+            escalated=True,
+        )
 
     # Get or create session
     session = await session_service.get_session(
@@ -40,7 +56,12 @@ async def chat(req: ChatRequest):
             app_name="1StopSellingBot",
             user_id="default_user",
             session_id=session_id,
+            state={"session_id": session_id},
         )
+    else:
+        # Ensure session_id is always in state
+        if "session_id" not in (session.state or {}):
+            session.state["session_id"] = session_id
 
     # Create user message content
     user_content = types.Content(
@@ -50,6 +71,7 @@ async def chat(req: ChatRequest):
 
     # Run agent
     reply_parts = []
+    escalated = False
     async for event in runner.run_async(
         user_id="default_user",
         session_id=session_id,
@@ -60,16 +82,21 @@ async def chat(req: ChatRequest):
                 if part.text:
                     reply_parts.append(part.text)
 
+    # Check database to see if an escalation was just created
+    esc_check = supabase.table("escalations").select("id").eq(
+        "session_id", session_id
+    ).in_("status", ["pending", "assigned", "in_progress"]).execute()
+    escalated = len(esc_check.data) > 0
+
     reply = "\n".join(reply_parts) if reply_parts else "Xin lỗi, tôi không thể xử lý yêu cầu này."
 
     # Save conversation to Supabase
-    supabase = get_supabase_client()
     supabase.table("conversations").insert([
         {"session_id": session_id, "role": "user", "content": req.message},
         {"session_id": session_id, "role": "assistant", "content": reply},
     ]).execute()
 
-    return ChatResponse(reply=reply, session_id=session_id)
+    return ChatResponse(reply=reply, session_id=session_id, escalated=escalated)
 
 
 @router.delete("/sessions/{session_id}")

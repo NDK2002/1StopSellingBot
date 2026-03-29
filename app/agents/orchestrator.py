@@ -1,22 +1,70 @@
 """Root Orchestrator Agent — routes user requests to the appropriate sub-agent."""
 
+import logging
+
 from google.adk.agents import Agent
+from google.adk.tools import FunctionTool, ToolContext
 
 from app.agents.advisor import advisor_agent
 from app.agents.inventory_agent import inventory_agent
 from app.agents.order_agent import order_agent
+from app.services.escalation import create_escalation
 from app.services.llm import get_llm_model
-import logging
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
+
+
+async def request_human_support(
+    tool_context: ToolContext,
+    reason: str = "user_request",
+    customer_summary: str = "",
+    skill_required: str = "",
+) -> dict:
+    """Escalate the conversation to a human staff member.
+
+    Use this when:
+    - The customer explicitly asks to talk to a human/staff
+    - You cannot answer the question confidently
+    - The issue is a complaint or complex problem
+    - There's an order issue that needs manual intervention
+
+    Args:
+        tool_context: Provided by ADK automatically.
+        reason: One of 'user_request', 'low_confidence', 'complex_issue', 'complaint', 'order_issue'.
+        customer_summary: Brief summary of the customer's issue for the staff member.
+        skill_required: Optional skill needed, e.g. 'order_support', 'returns', 'technical'.
+
+    Returns:
+        dict with escalation result.
+    """
+    # Get session_id from ADK session state (injected by chat router)
+    session_id = tool_context.state.get("session_id", "unknown")
+
+    result = await create_escalation(
+        session_id=session_id,
+        reason=reason,
+        skill_required=skill_required or None,
+        customer_summary=customer_summary or None,
+    )
+    if result.get("success"):
+        return {
+            "escalated": True,
+            "message": "Tôi đã chuyển cuộc hội thoại đến nhân viên hỗ trợ. Bạn sẽ được liên hệ sớm nhất!",
+            "assigned_to": result.get("assigned_to"),
+        }
+    return {
+        "escalated": False,
+        "message": "Hiện không có nhân viên trực, vui lòng thử lại sau.",
+    }
+
 
 root_agent = Agent(
     name="root_agent",
     model=get_llm_model(),
-    description="Điều phối viên chính — phân tích yêu cầu và chuyển đến agent phù hợp.",
+    description="Điều phối viên chính — phân tích yêu cầu và chuyển đến agent phù hợp hoặc chuyển cho nhân viên.",
     instruction="""Bạn là trợ lý mua hàng thông minh, nhiệm vụ là phân tích yêu cầu khách hàng và chuyển đến agent phù hợp.
 
 Các agent con:
@@ -30,8 +78,19 @@ Quy tắc routing:
 - Yêu cầu đặt hàng, mua hàng, tạo đơn → order_agent
 - Nếu không rõ, hỏi lại khách để làm rõ.
 
+**Human handoff** — sử dụng tool request_human_support khi:
+- Khách nói "cho tôi gặp nhân viên", "tôi muốn nói chuyện với người thật", "kết nối nhân viên"
+- Bạn không tự tin trả lời được (lý do: low_confidence)
+- Khách khiếu nại hoặc không hài lòng (lý do: complaint)
+- Vấn đề phức tạp về đơn hàng (lý do: order_issue)
+- request_human_support args:
+    - reason: One of 'user_request', 'low_confidence', 'complex_issue', 'complaint', 'order_issue'.
+    - skill_required: Optional skill needed, e.g. 'order_support', 'returns', 'technical'.
+    - customer_summary: Brief summary of the customer's issue for the staff member.
+
 Luôn trả lời bằng tiếng Việt, thân thiện và chuyên nghiệp.
 Chào khách khi bắt đầu cuộc hội thoại.
 """,
     sub_agents=[advisor_agent, inventory_agent, order_agent],
+    tools=[FunctionTool(request_human_support)],
 )

@@ -9,7 +9,7 @@
 |---|---|
 | Preact + Vite | Chatbot widget nhúng, hỗ trợ embed nhiều nền tảng |
 | Shadow DOM | Cô lập CSS của widget với website host |
-| Laravel 13 + Inertia.js + React | Admin Panel UI |
+| React + Vite + TypeScript | Admin Panel UI |
 | shadcn/ui | Component library cho Admin Panel |
 
 ### Backend
@@ -28,11 +28,9 @@
 ### Admin / Business Backend
 | Công nghệ | Vai trò |
 |---|---|
-| Laravel 13 | Admin Panel backend — CRUD, auth, queue |
-| Laravel Breeze | Authentication |
-| Spatie Permission | RBAC — roles: super_admin, admin, staff |
-| Laravel Reverb + Echo | Realtime inbox Admin Panel |
-| Laravel Queue (Redis driver) | Jobs nội bộ Laravel |
+| FastAPI | Admin Panel backend — CRUD, auth, RBAC |
+| WebSockets (FastAPI) | Realtime inbox Admin Panel |
+| Celery / Redis | Jobs nội bộ background |
 
 ### Database & Storage
 | Công nghệ | Vai trò |
@@ -46,7 +44,7 @@
 ### Security & Integration
 | Công nghệ | Vai trò |
 |---|---|
-| JWT HS256 | Laravel issue → FastAPI verify |
+| JWT HS256 | Authentication token cho Admin/Staff |
 | HMAC-SHA256 | Xác thực webhook từ doanh nghiệp |
 | Telegram Bot API | Push notification cho staff và admin |
 | Stripe | Billing, subscription, usage metering ở Phase 5 |
@@ -73,7 +71,7 @@
             │
             └── inventory xuống thấp → Low-stock Alert → Telegram notify admin
 
-    [Laravel 13 + Inertia.js]
+    [React + Vite + shadcn/ui]
     └── Admin Panel
         ├── /conversations  ← Inbox takeover realtime
         ├── /config/*       ← Chatbot, RAG, Staff, Widget, Integrations
@@ -85,7 +83,7 @@
     ├── Realtime
     └── Storage
 
-    JWT HS256 shared secret → Laravel issue ↔ FastAPI verify
+    JWT HS256 shared secret → Auth tokens
 ```
 
 ---
@@ -111,10 +109,9 @@
 ### Các phase sau
 | Công nghệ | Vai trò |
 |---|---|
-| Laravel 13 + Inertia.js + React | Admin Panel |
-| Spatie Permission | RBAC |
+| React + Vite + shadcn/ui | Admin Panel UI |
+| FastAPI | Admin Panel Backend, RBAC, Realtime inbox |
 | aiogram | Telegram Bot nội bộ |
-| Laravel Reverb + Echo | Realtime inbox |
 | Celery + RabbitMQ | Background jobs |
 | Stripe | Billing |
 | Cloudflare API | Provision subdomain tenant |
@@ -311,7 +308,7 @@ MVP được xem là hoàn thành khi:
 ## Phase 2 — Escalation & Telegram (3–4 tuần)
 
 ### Mục tiêu
-Sau khi MVP ổn định, bổ sung cơ chế human handoff và cảnh báo tồn kho thấp qua Telegram.
+Sau khi MVP ổn định, bổ sung cơ chế human handoff.
 
 ### Công nghệ sử dụng
 | Công nghệ | Mục đích |
@@ -320,13 +317,11 @@ Sau khi MVP ổn định, bổ sung cơ chế human handoff và cảnh báo tồ
 | aiogram | Telegram Bot nội bộ |
 | JWT HS256 | Deep link takeover |
 | Supabase Postgres | Staff, skills, conversations |
-| Google ADK / Gemini 2.0 Flash | Tạo ngôn ngữ tự nhiên cho low-stock alert |
 
 ### Phạm vi
 - Skill-based routing cho staff.
 - Telegram notification cho staff.
 - Deep link mở thẳng conversation.
-- Low-stock alert qua Telegram cho admin.
 
 ---
 
@@ -338,10 +333,9 @@ Thay Streamlit bằng giao diện vận hành production.
 ### Công nghệ sử dụng
 | Công nghệ | Mục đích |
 |---|---|
-| Laravel 13 | Backend Admin Panel |
-| Inertia.js + React | UI Admin Panel |
-| Spatie Permission | RBAC |
-| Laravel Reverb + Echo | Realtime inbox |
+| FastAPI | Backend Admin Panel & RBAC |
+| React + Vite + shadcn/ui | UI Admin Panel |
+| WebSockets (FastAPI) | Realtime inbox |
 | Preact + Vite | Widget production để embed |
 | Supabase Storage | RAG upload |
 | Celery + RabbitMQ | Background processing |
@@ -362,7 +356,7 @@ Thay Streamlit bằng giao diện vận hành production.
 | Công nghệ | Mục đích |
 |---|---|
 | Supabase Postgres | Lưu event logs |
-| Laravel | Dashboard báo cáo |
+| React + Vite + shadcn/ui | Dashboard báo cáo |
 | Celery Beat | SLA check |
 | aiogram | Notify supervisor |
 
@@ -386,7 +380,7 @@ Biến hệ thống thành nền tảng dùng cho nhiều doanh nghiệp.
 | FastAPI | Webhook bridge |
 | HMAC-SHA256 | Xác thực webhook |
 | Celery + RabbitMQ | Xử lý webhook async |
-| Laravel 13 | Tenant onboarding + billing UI |
+| React + Vite + shadcn/ui | Tenant onboarding + billing UI |
 | Stripe | Subscription và usage metering |
 | Cloudflare API | Provision subdomain |
 
