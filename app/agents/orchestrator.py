@@ -1,6 +1,6 @@
 """Root Orchestrator Agent — routes user requests to the appropriate sub-agent."""
 
-import logging
+# import logging
 
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool, ToolContext
@@ -11,10 +11,10 @@ from app.agents.order_agent import order_agent
 from app.services.escalation import create_escalation
 from app.services.llm import get_llm_model
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+# )
 
 
 async def request_human_support(

@@ -8,12 +8,12 @@ from google.adk.tools import FunctionTool
 
 from app.config import get_supabase_client
 from app.services.llm import get_llm_model
-import logging
+# import logging
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+# )
 
 
 async def lookup_product_for_order(sku: str) -> dict:

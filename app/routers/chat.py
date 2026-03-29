@@ -11,6 +11,7 @@ from google.genai import types
 from app.agents.orchestrator import root_agent
 from app.config import get_settings, get_supabase_client
 from app.models.schemas import ChatRequest, ChatResponse
+import logging
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -24,6 +25,11 @@ runner = Runner(
     session_service=session_service,
 )
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+)
+
 @router.post("", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     """Send a message to the chatbot and get a response."""
@@ -35,10 +41,23 @@ async def chat(req: ChatRequest):
         "session_id", session_id
     ).eq("status", "in_progress").execute()
     if active_escalation.data:
-        # Save user message for staff to see
+        # Save user message for staff to see in DB
         supabase.table("conversations").insert(
             {"session_id": session_id, "role": "user", "content": req.message}
         ).execute()
+
+        # Add to ADK session history so bot doesn't lose context
+        from google.adk.events.event import Event
+        session = await session_service.get_session("1StopSellingBot", "default_user", session_id)
+        if session:
+            await session_service.append_event(
+                session,
+                Event(
+                    author="user",
+                    content=types.Content(role="user", parts=[types.Part(text=req.message)])
+                )
+            )
+
         return ChatResponse(
             reply="Nhân viên đang hỗ trợ bạn. Vui lòng chờ phản hồi.",
             session_id=session_id,

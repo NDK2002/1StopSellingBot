@@ -139,13 +139,34 @@ async def staff_reply(escalation_id: str, msg: TakeoverMessage):
     elif escalation["status"] != "in_progress":
         raise HTTPException(status_code=400, detail="Escalation already resolved")
 
-    # Save staff message to conversation history
+    # Save staff message to conversation history in DB
     supabase.table("conversations").insert({
         "session_id": msg.session_id,
         "role": "assistant",
         "content": msg.message,
         "metadata": {"source": "staff", "escalation_id": escalation_id},
     }).execute()
+
+    # Add to ADK session history so bot knows what staff said
+    try:
+        from app.routers.chat import session_service
+        from google.adk.events.event import Event
+        from google.genai import types
+
+        session = await session_service.get_session("1StopSellingBot", "default_user", msg.session_id)
+        if session:
+            await session_service.append_event(
+                session,
+                Event(
+                    author="assistant",
+                    content=types.Content(
+                        role="assistant", 
+                        parts=[types.Part(text=f"[Nhân viên tư vấn]: {msg.message}")]
+                    )
+                )
+            )
+    except Exception as e:
+        print(f"Warning: Failed to inject staff message into ADK session: {e}")
 
     return {"message": "Reply sent", "session_id": msg.session_id}
 
