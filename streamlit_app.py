@@ -185,7 +185,9 @@ def _render_chat_ui():
     """Main chat interface for customers."""
     # ── Session State
     if "session_id" not in st.session_state:
-        st.session_state.session_id = str(uuid.uuid4())
+        initial_id = str(uuid.uuid4())
+        st.session_state.session_id = initial_id
+        st.session_state.manual_session_input = initial_id
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
@@ -198,14 +200,36 @@ def _render_chat_ui():
         st.header("⚙️ Cài đặt")
         st.text(f"Session: {st.session_state.session_id}")
 
-        if st.button("🔄 Reset hội thoại", use_container_width=True):
+        st.divider()
+        st.subheader("Tải Session (Test)")
+        manual_session = st.text_input("Nhập Session ID:", key="manual_session_input")
+        if st.button("Load Session", use_container_width=True):
+            if manual_session.strip():
+                st.session_state.session_id = manual_session.strip()
+                st.session_state.messages = []
+                try:
+                    resp = httpx.get(f"{API_BASE_URL}/api/escalations/session/{st.session_state.session_id}/history", timeout=5.0)
+                    if resp.status_code == 200 and len(resp.json()) > 0:
+                        st.session_state.is_escalated = True
+                    else:
+                        st.session_state.is_escalated = False
+                except Exception:
+                    st.session_state.is_escalated = False
+                st.rerun()
+
+        st.divider()
+        def handle_new_session():
             try:
                 httpx.delete(f"{API_BASE_URL}/api/chat/sessions/{st.session_state.session_id}")
             except Exception:
                 pass
             st.session_state.messages = []
-            st.session_state.session_id = str(uuid.uuid4())
-            st.rerun()
+            st.session_state.is_escalated = False
+            new_id = str(uuid.uuid4())
+            st.session_state.session_id = new_id
+            st.session_state.manual_session_input = new_id
+
+        st.button("🔄 New Session", use_container_width=True, on_click=handle_new_session)
 
         st.divider()
         st.subheader("💡 Ví dụ câu hỏi")

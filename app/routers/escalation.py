@@ -198,3 +198,43 @@ async def get_session_history(session_id: str, limit: int = 100):
         .execute()
     )
     return result.data or []
+
+
+@router.get("/{session_id}/messages")
+async def get_escalation_messages(session_id: str):
+    from app.config import get_supabase_client
+    supabase = get_supabase_client()
+    return supabase.table("conversations").select("*").eq("session_id", session_id).order("created_at").execute().data
+
+
+from pydantic import BaseModel
+class TakeoverText(BaseModel):
+    message: str
+
+@router.post("/{session_id}/takeover_message")
+async def takeover_message_by_session(session_id: str, msg: TakeoverText):
+    from app.config import get_supabase_client
+    supabase = get_supabase_client()
+    
+    # Get latest active escalation for this session limit 1
+    esc = supabase.table("escalations").select("*").eq("session_id", session_id).order("created_at", desc=True).limit(1).execute()
+    if not esc.data:
+        raise HTTPException(status_code=404, detail="No escalation found for this session")
+        
+    escalation_id = esc.data[0]["id"]
+    
+    content_to_save = f"[Hệ thống cập nhật thông tin nội bộ]: {msg.message}"
+    
+    saved = supabase.table("conversations").insert({
+        "session_id": session_id,
+        "role": "assistant",
+        "content": content_to_save,
+        "metadata": {"source": "staff", "escalation_id": escalation_id},
+    }).execute()
+    
+    from app.services.websocket import manager
+    import asyncio
+    if saved.data:
+        asyncio.create_task(manager.broadcast_to_session(session_id, {"type": "new_message", "message": saved.data[0]}))
+
+    return {"status": "success", "message": saved.data[0]}

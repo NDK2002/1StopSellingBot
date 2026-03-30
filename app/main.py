@@ -8,12 +8,12 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import chat, escalation, inventory, orders, products, rag, staff
+from app.routers import chat, escalation, inventory, orders, products, rag, staff, auth, ws
 
 app = FastAPI(
     title="1StopSellingBot API",
     description="AI-powered shopping assistant with multi-agent architecture",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 # CORS middleware
@@ -35,6 +35,9 @@ app.include_router(chat.router)
 # Phase 2 routers
 app.include_router(staff.router)
 app.include_router(escalation.router)
+
+# Phase 3 routers
+app.include_router(auth.router)
 
 
 @app.get("/")

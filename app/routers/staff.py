@@ -1,6 +1,7 @@
 """Staff management API routes."""
 
 from fastapi import APIRouter, HTTPException
+import bcrypt
 
 from app.config import get_supabase_client
 from app.models.schemas import StaffCreate, StaffResponse, StaffUpdate
@@ -8,11 +9,19 @@ from app.models.schemas import StaffCreate, StaffResponse, StaffUpdate
 router = APIRouter(prefix="/api/staff", tags=["staff"])
 
 
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
 @router.post("", response_model=StaffResponse)
 async def create_staff(staff: StaffCreate):
     """Create a new staff member."""
     supabase = get_supabase_client()
-    result = supabase.table("staff").insert(staff.model_dump()).execute()
+    data = staff.model_dump(exclude={"password"})
+    # Hash password if provided
+    if staff.password:
+        data["password_hash"] = _hash_password(staff.password)
+    result = supabase.table("staff").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=400, detail="Failed to create staff")
     return result.data[0]
@@ -43,7 +52,10 @@ async def get_staff(staff_id: str):
 async def update_staff(staff_id: str, staff: StaffUpdate):
     """Update a staff member."""
     supabase = get_supabase_client()
-    data = staff.model_dump(exclude_none=True)
+    data = staff.model_dump(exclude_none=True, exclude={"password"})
+    # Hash password if provided
+    if staff.password:
+        data["password_hash"] = _hash_password(staff.password)
     if not data:
         raise HTTPException(status_code=400, detail="No fields to update")
     result = supabase.table("staff").update(data).eq("id", staff_id).execute()

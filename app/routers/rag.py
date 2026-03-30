@@ -80,3 +80,33 @@ async def delete_rag_document(document_id: str):
     if not result.data:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted", "id": document_id}
+
+
+from pydantic import BaseModel
+
+class RAGQuery(BaseModel):
+    query: str
+    top_k: int = 5
+    generate_answer: bool = True
+
+@router.post("/sandbox/query")
+async def rag_sandbox_query(req: RAGQuery):
+    from app.services.rag import search_rag
+    import os
+    from google import genai
+    
+    chunks = await search_rag(req.query, top_k=req.top_k)
+    
+    answer = None
+    if req.generate_answer and chunks:
+        context = "\n\n".join([c.get('content') for c in chunks])
+        prompt = f"Dựa vào thông tin tham khảo sau đây:\n\n---\n{context}\n---\n\nHãy trả lời câu hỏi: {req.query}"
+        
+        client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        answer = response.text
+        
+    return {"query": req.query, "chunks": chunks, "answer": answer}

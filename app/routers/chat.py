@@ -42,10 +42,14 @@ async def chat(req: ChatRequest):
     ).eq("status", "in_progress").execute()
     if active_escalation.data:
         # Save user message for staff to see in DB
-        supabase.table("conversations").insert(
+        new_msg = supabase.table("conversations").insert(
             {"session_id": session_id, "role": "user", "content": req.message}
         ).execute()
 
+        from app.services.websocket import manager
+        import asyncio
+        if new_msg.data:
+            asyncio.create_task(manager.broadcast_to_session(session_id, {"type": "new_message", "message": new_msg.data[0]}))
         # Add to ADK session history so bot doesn't lose context
         try:
             from google.adk.events.event import Event

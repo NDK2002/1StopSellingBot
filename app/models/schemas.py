@@ -143,6 +143,8 @@ class StaffCreate(BaseModel):
     skills: list[str] = Field(default_factory=list)
     is_available: bool = True
     max_concurrent: int = 5
+    password: str | None = None
+    role: str = "staff"
 
 
 class StaffUpdate(BaseModel):
@@ -152,6 +154,8 @@ class StaffUpdate(BaseModel):
     skills: list[str] | None = None
     is_available: bool | None = None
     max_concurrent: int | None = None
+    password: str | None = None
+    role: str | None = None
 
 
 class StaffResponse(BaseModel):
@@ -163,6 +167,7 @@ class StaffResponse(BaseModel):
     is_available: bool
     max_concurrent: int
     current_load: int
+    role: str | None = None
     created_at: str
     updated_at: str
 

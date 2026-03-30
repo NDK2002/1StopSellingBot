@@ -17,6 +17,9 @@ server: ## Start FastAPI server (port 8000)
 ui: ## Start Streamlit chat UI
 	uv run streamlit run streamlit_app.py
 
+admin: ## Start Admin Panel React UI
+	cd admin-ui && pnpm run dev
+
 chat: ## Quick test chat via curl
 	@read -p "Message: " msg; \
 	curl -s -X POST http://localhost:8000/api/chat \
