@@ -32,15 +32,38 @@ async def create_escalation(
     # Step 1: Find best staff
     staff = await _find_best_staff(skill_required)
 
+    if not staff:
+        logger.warning(f"No staff available for session {session_id} (required skill: {skill_required})")
+        return {
+            "success": False,
+            "error": "Hiện tại các nhân viên đang quá tải, vui lòng thử lại sau"
+        }
+
+    status = "assigned"
+    staff_id = staff["id"]
+
+    # Step 1.5: Check for existing duplicate escalation
+    existing = supabase.table("escalations").select("*").eq("session_id", session_id).eq("status", status).execute()
+    existing_matches = [e for e in existing.data if e.get("staff_id") == staff_id]
+
+    if existing_matches:
+        logger.info(f"Duplicate escalation skipped for session {session_id}")
+        return {
+            "success": True,
+            "escalation_id": existing_matches[0]["id"],
+            "status": existing_matches[0]["status"],
+            "assigned_to": staff["name"] if staff else None,
+        }
+
     # Step 2: Create escalation record
     escalation_data = {
         "session_id": session_id,
         "reason": reason,
         "skill_required": skill_required,
         "customer_summary": customer_summary,
-        "status": "assigned" if staff else "pending",
-        "staff_id": staff["id"] if staff else None,
-        "assigned_at": datetime.now(timezone.utc).isoformat() if staff else None,
+        "status": status,
+        "staff_id": staff_id,
+        "assigned_at": datetime.now(timezone.utc).isoformat(),
         "priority": _calculate_priority(reason),
     }
 
@@ -58,7 +81,7 @@ async def create_escalation(
         }).eq("id", staff["id"]).execute()
 
     # Step 4: Send Telegram notification
-    if staff and staff.get("telegram_chat_id"):
+    if staff.get("telegram_chat_id"):
         # Telegram mobile blocks "localhost" URLs. Use 127.0.0.1 or a real domain (ngrok)
         deep_link = f"http://127.0.0.1:8501/?session_id={session_id}"
         await send_escalation_notification(
@@ -68,15 +91,13 @@ async def create_escalation(
             customer_summary=customer_summary,
             deep_link=deep_link,
         )
-        logger.info(f"Escalation {escalation['id']} assigned to {staff['name']}")
-    else:
-        logger.warning(f"Escalation {escalation['id']} pending — no staff available")
+    logger.info(f"Escalation {escalation['id']} assigned to {staff['name']}")
 
     return {
         "success": True,
         "escalation_id": escalation["id"],
         "status": escalation["status"],
-        "assigned_to": staff["name"] if staff else None,
+        "assigned_to": staff["name"],
     }
 
 
@@ -119,7 +140,7 @@ async def _find_best_staff(skill_required: str | None = None) -> dict | None:
 
     Priority:
     1. Staff with matching skill + lowest load + under max_concurrent
-    2. Any available staff with lowest load
+    2. Staff with "quản lý" skill + lowest load + under max_concurrent
     """
     supabase = get_supabase_client()
 
@@ -138,8 +159,12 @@ async def _find_best_staff(skill_required: str | None = None) -> dict | None:
         if skill_matches:
             return min(skill_matches, key=lambda s: s["current_load"])
 
-    # Fallback: any available staff with lowest load
-    return min(available, key=lambda s: s["current_load"])
+    # Fallback: staff with skill "quản lý"
+    manager_matches = [s for s in available if "quản lý" in (s.get("skills") or [])]
+    if manager_matches:
+        return min(manager_matches, key=lambda s: s["current_load"])
+
+    return None
 
 
 def _calculate_priority(reason: str) -> int:

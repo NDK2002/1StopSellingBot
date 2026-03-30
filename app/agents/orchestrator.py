@@ -57,7 +57,7 @@ async def request_human_support(
         }
     return {
         "escalated": False,
-        "message": "Hiện không có nhân viên trực, vui lòng thử lại sau.",
+        "message": result.get("error", "Hiện tại các nhân viên đang quá tải, vui lòng thử lại sau."),
     }
 
 

@@ -11,9 +11,10 @@ from app.models.schemas import (
     EscalationResponse,
     EscalationUpdate,
     TakeoverMessage,
+    EscalationAssign,
 )
 from app.services.escalation import create_escalation, resolve_escalation
-from app.services.telegram import send_takeover_notification
+from app.services.telegram import send_takeover_notification, send_escalation_notification
 
 router = APIRouter(prefix="/api/escalations", tags=["escalations"])
 
@@ -77,7 +78,7 @@ async def takeover_conversation(escalation_id: str):
         raise HTTPException(status_code=404, detail="Escalation not found")
 
     escalation = esc.data[0]
-    if escalation["status"] not in ("pending", "assigned"):
+    if escalation["status"] != "assigned":
         raise HTTPException(status_code=400, detail="Cannot takeover — already in progress or resolved")
 
     # Update status to in_progress
@@ -130,7 +131,7 @@ async def staff_reply(escalation_id: str, msg: TakeoverMessage):
         raise HTTPException(status_code=404, detail="Escalation not found")
 
     escalation = esc.data[0]
-    if escalation["status"] in ("pending", "assigned"):
+    if escalation["status"] == "assigned":
         # Auto-takeover when staff replies
         supabase.table("escalations").update({
             "status": "in_progress",
@@ -185,6 +186,62 @@ async def resolve(escalation_id: str, update: EscalationUpdate | None = None):
     return result
 
 
+@router.post("/{escalation_id}/assign")
+async def reassign_escalation(escalation_id: str, assign_data: EscalationAssign):
+    """Re-assign an escalation to a different staff member."""
+    supabase = get_supabase_client()
+    
+    # 1. Get current escalation
+    esc_result = supabase.table("escalations").select("*").eq("id", escalation_id).execute()
+    if not esc_result.data:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    
+    escalation = esc_result.data[0]
+    old_staff_id = escalation.get("staff_id")
+    new_staff_id = assign_data.new_staff_id
+    
+    if old_staff_id == new_staff_id:
+        return {"success": True, "message": "Already assigned to this staff"}
+        
+    # 2. Get new staff details
+    new_staff_result = supabase.table("staff").select("*").eq("id", new_staff_id).execute()
+    if not new_staff_result.data:
+        raise HTTPException(status_code=404, detail="New staff not found")
+        
+    new_staff = new_staff_result.data[0]
+    
+    # 3. Update Escalation
+    supabase.table("escalations").update({
+        "staff_id": new_staff_id,
+        "status": "assigned",
+        "assigned_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", escalation_id).execute()
+    
+    # 4. Decrease old staff load
+    if old_staff_id:
+        old_staff_res = supabase.table("staff").select("current_load").eq("id", old_staff_id).execute()
+        if old_staff_res.data:
+            old_load = max(0, old_staff_res.data[0]["current_load"] - 1)
+            supabase.table("staff").update({"current_load": old_load}).eq("id", old_staff_id).execute()
+            
+    # 5. Increase new staff load
+    new_load = new_staff["current_load"] + 1
+    supabase.table("staff").update({"current_load": new_load}).eq("id", new_staff_id).execute()
+    
+    # 6. Send Telegram Notification to new staff
+    if new_staff.get("telegram_chat_id"):
+        deep_link = f"http://127.0.0.1:8501/?session_id={escalation['session_id']}"
+        await send_escalation_notification(
+            chat_id=new_staff["telegram_chat_id"],
+            session_id=escalation["session_id"],
+            reason=escalation["reason"],
+            customer_summary=escalation["customer_summary"],
+            deep_link=deep_link,
+        )
+        
+    return {"success": True, "message": f"Escalation reassigned to {new_staff['name']}"}
+
+
 @router.get("/session/{session_id}/history")
 async def get_session_history(session_id: str, limit: int = 100):
     """Get conversation history for a session (used by staff during takeover)."""
@@ -223,6 +280,11 @@ async def takeover_message_by_session(session_id: str, msg: TakeoverText):
         
     escalation_id = esc.data[0]["id"]
     
+    if esc.data[0]["status"] == "assigned":
+        supabase.table("escalations").update({
+            "status": "in_progress",
+        }).eq("id", escalation_id).execute()
+        
     content_to_save = f"[Hệ thống cập nhật thông tin nội bộ]: {msg.message}"
     
     saved = supabase.table("conversations").insert({

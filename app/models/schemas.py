@@ -184,6 +184,9 @@ class EscalationUpdate(BaseModel):
     status: str | None = None
     staff_notes: str | None = None
 
+class EscalationAssign(BaseModel):
+    new_staff_id: str
+
 
 class EscalationResponse(BaseModel):
     id: str
