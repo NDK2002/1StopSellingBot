@@ -28,7 +28,7 @@ make server
 ### 5. Chạy Streamlit UI
 
 ```bash
-uv ui
+make ui
 ```
 
 ### 6. Start Admin UI
