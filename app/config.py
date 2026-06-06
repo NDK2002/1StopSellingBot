@@ -13,12 +13,10 @@ class Settings(BaseSettings):
     supabase_anon_key: str
     supabase_service_role_key: str = ""
     google_api_key: str
-    groq_api_key: str = ""
     openrouter_api_key: str = ""
-    groq_model: str = "groq/llama-3.3-70b-versatile"
-    openrouter_model: str = "openrouter/google/gemini-2.0-flash-lite-001"
+    openrouter_model: str = "openrouter/google/gemini-2.5-flash"
     telegram_bot_token: str = ""
-    jwt_secret: str = "change-me-in-production"
+    jwt_secret: str = ""
     app_base_url: str = "http://localhost:8000"
     app_env: str = "development"
     app_host: str = "0.0.0.0"

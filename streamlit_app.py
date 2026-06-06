@@ -268,8 +268,9 @@ def _render_chat_ui():
                             else:
                                 source = metadata.get("source", "bot")
                                 if source == "staff":
+                                    user = metadata.get("user", {})
                                     with st.chat_message("assistant", avatar="👤"):
-                                        st.markdown(f"**[Nhân viên]** {content}")
+                                        st.markdown(f"**[{user.get('name')}]** {content}")
                                 else:
                                     with st.chat_message("assistant"):
                                         st.markdown(content)

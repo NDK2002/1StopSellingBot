@@ -267,6 +267,7 @@ async def get_escalation_messages(session_id: str):
 from pydantic import BaseModel
 class TakeoverText(BaseModel):
     message: str
+    user: dict
 
 @router.post("/{session_id}/takeover_message")
 async def takeover_message_by_session(session_id: str, msg: TakeoverText):
@@ -279,19 +280,20 @@ async def takeover_message_by_session(session_id: str, msg: TakeoverText):
         raise HTTPException(status_code=404, detail="No escalation found for this session")
         
     escalation_id = esc.data[0]["id"]
+    user = msg.user
     
     if esc.data[0]["status"] == "assigned":
         supabase.table("escalations").update({
             "status": "in_progress",
         }).eq("id", escalation_id).execute()
         
-    content_to_save = f"[Hệ thống cập nhật thông tin nội bộ]: {msg.message}"
+    content_to_save = f"[Nhân viên hỗ trợ]: {msg.message}"
     
     saved = supabase.table("conversations").insert({
         "session_id": session_id,
         "role": "assistant",
         "content": content_to_save,
-        "metadata": {"source": "staff", "escalation_id": escalation_id},
+        "metadata": {"source": "staff", "escalation_id": escalation_id, "user": user},
     }).execute()
     
     from app.services.websocket import manager

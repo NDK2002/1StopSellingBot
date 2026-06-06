@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { useQuery } from '@tanstack/react-query'
 import { MessagesSquare, BotMessageSquare, User, Loader2, Send, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useState, useRef, useEffect } from 'react'
 import {
@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useAuth } from '@/store/auth'
 
 export const Route = createFileRoute('/conversations')({
   component: ConversationsPage,
@@ -45,6 +46,7 @@ function ConversationsPage() {
   const [replyText, setReplyText] = useState('')
   const [isSending, setIsSending] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const authStore = useAuth()
 
   useEffect(() => {
     const onHashChange = () => {
@@ -138,12 +140,15 @@ function ConversationsPage() {
     e.preventDefault()
     if (!replyText.trim() || !activeSession) return
     setIsSending(true)
+    // get user id from AuthState using zustand
+    const user = authStore.user || {}
 
+    console.log(user)
     try {
       await fetch(`http://localhost:8000/api/escalations/${activeSession}/takeover_message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: replyText })
+        body: JSON.stringify({ message: replyText, user: user })
       })
       setReplyText('')
       refetchMessages()
@@ -230,8 +235,8 @@ function ConversationsPage() {
               </div>
                 <div className="flex items-center gap-2">
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground h-8 px-3" disabled={isReassigning}>
-                      <Users className="w-4 h-4" />
+                    <DropdownMenuTrigger className={buttonVariants({ variant: "outline", size: "sm" })} disabled={isReassigning}>
+                      <Users className="w-4 h-4 mr-2" />
                       Chuyển người (Re-assign)
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -269,7 +274,7 @@ function ConversationsPage() {
               ) : (
                 messages?.map((msg) => {
                   const isUser = msg.role === 'user'
-                  const isStaff = msg.content.startsWith('[Hệ thống cập nhật thông tin')
+                  const isStaff = msg.content.startsWith('[Nhân viên hỗ trợ')
 
                   return (
                     <div key={msg.id} className={`flex gap-3 ${isUser && !isStaff ? 'justify-end' : 'justify-start'}`}>
@@ -287,7 +292,7 @@ function ConversationsPage() {
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap">
-                          {isStaff ? msg.content.replace(/\[Hệ thống.*\]:\s*/, '') : msg.content}
+                          {isStaff ? msg.content.replace(/\[Nhân viên.*\]:\s*/, '') : msg.content}
                         </p>
                         <span className="text-[10px] opacity-70 mt-1 block">
                           {new Date(msg.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}

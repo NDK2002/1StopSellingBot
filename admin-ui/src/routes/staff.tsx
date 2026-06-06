@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Save, Trash2, Pencil, X, Check, Shield, User } from 'lucide-react'
+import { Plus, Loader2, Save, Trash2, Pencil, X, Check, Shield, User, RefreshCcw } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useState } from 'react'
 
@@ -374,6 +374,19 @@ function StaffPage() {
                           title="Sửa"
                         >
                           <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                          onClick={() => {
+                            if (confirm(`Xác nhận reset load cho "${staff.name}" về 0?`)) {
+                              saveMutation.mutate({ id: staff.id, data: { current_load: 0 } })
+                            }
+                          }}
+                          title="Reset Load"
+                        >
+                          <RefreshCcw className="w-3.5 h-3.5" />
                         </Button>
                         <Button
                           variant="ghost"

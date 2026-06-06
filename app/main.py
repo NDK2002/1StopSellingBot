@@ -5,10 +5,37 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import chat, escalation, inventory, orders, products, rag, staff, auth, ws
+
+# 1. Mute LiteLLM environment logs
+os.environ["LITELLM_LOG"] = "ERROR"
+
+# 2. Silence LiteLLM and underlying Google/HTTP loggers
+loggers_to_mute = [
+    "LiteLLM",
+    "LiteLLM Proxy",
+    "LiteLLM Router",
+    "google.auth",
+    "google.auth.transport.requests",
+    "openai",
+    "httpx",
+    "urllib3.connectionpool",
+    "httpcore.http2",
+    "hpack.hpack",
+    "hpack",
+    "httpcore.connection",
+    "google_adk.google.adk.models.lite_llm",
+    "httpcore.http11",
+]
+
+for logger_name in loggers_to_mute:
+    logging.getLogger(logger_name).setLevel(logging.ERROR)
 
 app = FastAPI(
     title="1StopSellingBot API",

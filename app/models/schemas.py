@@ -156,6 +156,7 @@ class StaffUpdate(BaseModel):
     max_concurrent: int | None = None
     password: str | None = None
     role: str | None = None
+    current_load: int | None = None
 
 
 class StaffResponse(BaseModel):
