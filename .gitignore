@@ -52,3 +52,6 @@ dist-ssr
 *.sw?
 .tanstack
 note.txt
+
+# Superpowers internal docs
+docs/superpowers/

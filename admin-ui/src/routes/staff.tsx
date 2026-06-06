@@ -48,19 +48,26 @@ const emptyForm: StaffFormData = {
   password: '',
 }
 
-const STAFF_SKILL_OPTIONS = [
-  'order_support',
-  'inventory_support',
-  'technical_support',
-  'product_support',
-  'general_support',
-]
+interface SkillOption {
+  key: string
+  label: string
+}
 
 function StaffPage() {
   const queryClient = useQueryClient()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
   const [form, setForm] = useState<StaffFormData>(emptyForm)
+
+  const { data: skillOptions = [] } = useQuery<SkillOption[]>({
+    queryKey: ['skills'],
+    queryFn: async () => {
+      const res = await fetch('http://localhost:8000/api/skills')
+      if (!res.ok) throw new Error('Failed to fetch skills')
+      return res.json()
+    },
+    staleTime: Infinity,
+  })
 
   const { data: staffList, isLoading } = useQuery<Staff[]>({
     queryKey: ['staff'],
@@ -266,18 +273,19 @@ function StaffPage() {
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kỹ năng xử lý (Skills)</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-md border bg-background p-3">
-                {STAFF_SKILL_OPTIONS.map((skill) => (
+                {skillOptions.map((skill) => (
                   <label
-                    key={skill}
-                    className="flex items-center gap-2 text-sm font-mono cursor-pointer rounded-sm px-2 py-1.5 hover:bg-muted"
+                    key={skill.key}
+                    className="flex items-center gap-2 text-sm cursor-pointer rounded-sm px-2 py-1.5 hover:bg-muted"
                   >
                     <input
                       type="checkbox"
                       className="h-4 w-4 accent-primary"
-                      checked={form.skills.includes(skill)}
-                      onChange={() => toggleSkill(skill)}
+                      checked={form.skills.includes(skill.key)}
+                      onChange={() => toggleSkill(skill.key)}
                     />
-                    <span>{skill}</span>
+                    <span className="font-medium">{skill.label}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono ml-auto">{skill.key}</span>
                   </label>
                 ))}
               </div>

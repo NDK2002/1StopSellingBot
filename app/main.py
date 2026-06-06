@@ -11,7 +11,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import chat, escalation, inventory, orders, products, rag, staff, auth, ws
+from app.routers import chat, escalation, inventory, orders, products, rag, staff, auth, ws, skills
 
 # 1. Mute LiteLLM environment logs
 os.environ["LITELLM_LOG"] = "ERROR"
@@ -65,6 +65,7 @@ app.include_router(escalation.router)
 
 # Phase 3 routers
 app.include_router(auth.router)
+app.include_router(skills.router)
 
 
 @app.get("/")

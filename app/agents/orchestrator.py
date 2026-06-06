@@ -1,20 +1,18 @@
 """Root Orchestrator Agent — routes user requests to the appropriate sub-agent."""
 
-# import logging
-
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool, ToolContext
 
 from app.agents.advisor import advisor_agent
 from app.agents.inventory_agent import inventory_agent
 from app.agents.order_agent import order_agent
+from app.constants import SKILL_FALLBACK, SKILL_KEYS, SKILLS
 from app.services.escalation import create_escalation
 from app.services.llm import get_llm_model
 
-# logging.basicConfig(
-#     level=logging.DEBUG,
-#     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-# )
+_SKILL_PROMPT = "\n".join(
+    f'- "{s["key"]}" → {s["label"]}' for s in SKILLS
+)
 
 
 async def request_human_support(
@@ -35,13 +33,16 @@ async def request_human_support(
         tool_context: Provided by ADK automatically.
         reason: One of 'user_request', 'low_confidence', 'complex_issue', 'complaint', 'order_issue'.
         customer_summary: Brief summary of the customer's issue for the staff member.
-        skill_required: Optional skill needed, e.g. 'order_support', 'returns', 'technical'.
+        skill_required: Must be one of the predefined skill keys. Invalid values fall back to general_support.
 
     Returns:
         dict with escalation result.
     """
-    # Get session_id from ADK session state (injected by chat router)
     session_id = tool_context.state.get("session_id", "unknown")
+
+    # Validate skill_required — reject hallucinated values
+    if skill_required not in SKILL_KEYS:
+        skill_required = SKILL_FALLBACK
 
     result = await create_escalation(
         session_id=session_id,
@@ -65,7 +66,7 @@ root_agent = Agent(
     name="root_agent",
     model=get_llm_model(),
     description="Điều phối viên chính — phân tích yêu cầu và chuyển đến agent phù hợp hoặc chuyển cho nhân viên.",
-    instruction="""Bạn là trợ lý mua hàng thông minh, nhiệm vụ là phân tích yêu cầu khách hàng và chuyển đến agent phù hợp.
+    instruction=f"""Bạn là trợ lý mua hàng thông minh, nhiệm vụ là phân tích yêu cầu khách hàng và chuyển đến agent phù hợp.
 
 Các agent con:
 1. **advisor_agent**: Tư vấn sản phẩm, trả lời về chính sách đổi trả, bảo hành, FAQ, thông tin sản phẩm.
@@ -85,8 +86,10 @@ Quy tắc routing:
 - Vấn đề phức tạp về đơn hàng (lý do: order_issue)
 - request_human_support args:
     - reason: One of 'user_request', 'low_confidence', 'complex_issue', 'complaint', 'order_issue'.
-    - skill_required: Optional. Bộ skill gồm: 'order_support', 'inventory_support', 'technical_support', 'product_support', 'general_support'.
     - customer_summary: Brief summary of the customer's issue for the staff member.
+    - skill_required: BẮT BUỘC chỉ dùng các giá trị sau, KHÔNG được tự đặt giá trị khác:
+{_SKILL_PROMPT}
+      Nếu không xác định được bộ phận phù hợp → dùng "general_support".
 
 Luôn trả lời bằng tiếng Việt, thân thiện và chuyên nghiệp.
 Chào khách khi bắt đầu cuộc hội thoại.
