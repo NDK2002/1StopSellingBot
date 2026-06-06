@@ -193,6 +193,27 @@ async def seed():
             chunk_count = await index_document(doc_id, doc["content"])
             print(f"    ✅ {doc['title']} ({chunk_count} chunks)")
 
+    # 5. Create sample users
+    print("  👥 Creating users...")
+    users = [
+        {
+            "name": "Manager",
+            "email": "manager@gmail.com",
+            "telegram_chat_id": "123",
+            "skills": "[\"quản lý\"]",
+            "is_available": true,
+            "max_concurrent": 5,
+            "current_load": 0,
+            "created_at": "2026-03-29 05:48:23.413863+00",
+            "updated_at": "2026-06-06 06:51:38.837294+00",
+            "password_hash": "$2b$12$lTU2h5dV.2wo87oL2wOetO1RcYIU6TK21dFr9eQZ1DmRIfSlLUNWq", # 123456
+            "role": "admin"
+        }
+    ]
+    for user in users:
+        result = supabase.table("staff").insert(user).execute()
+        print(f"    ✅ {user['name']} ({user['role']})")
+
     print("\n✅ Seeding complete!")
 
 
