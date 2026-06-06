@@ -83,7 +83,7 @@ async def create_escalation(
     # Step 4: Send Telegram notification
     if staff.get("telegram_chat_id"):
         # Telegram mobile blocks "localhost" URLs. Use 127.0.0.1 or a real domain (ngrok)
-        deep_link = f"http://127.0.0.1:8501/?session_id={session_id}"
+        deep_link = f"http://localhost:5173/conversations#{session_id}"
         await send_escalation_notification(
             chat_id=staff["telegram_chat_id"],
             session_id=session_id,
