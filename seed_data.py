@@ -200,7 +200,7 @@ async def seed():
             "name": "Manager",
             "email": "manager@gmail.com",
             "telegram_chat_id": "123",
-            "skills": "[\"quản lý\"]",
+            "skills": "[\"order_support\", \"inventory_support\", \"technical_support\", \"product_support\", \"general_support\"]",
             "is_available": true,
             "max_concurrent": 5,
             "current_load": 0,

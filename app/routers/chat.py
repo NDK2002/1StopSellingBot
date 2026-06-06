@@ -4,6 +4,7 @@ import uuid
 
 from fastapi import APIRouter
 
+from google.adk.events.event import Event
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -30,6 +31,73 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
 )
 
+
+APP_NAME = "1StopSellingBot"
+USER_ID = "default_user"
+STAFF_CONTEXT_PREFIX = "[Hệ thống cập nhật: Nhân viên người thật đã vào hỗ trợ và chat nội dung sau]: "
+
+
+async def get_or_create_session(session_id: str):
+    """Load an ADK session, replaying persisted conversation history when needed."""
+    session = await session_service.get_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id=session_id,
+    )
+    if session is None:
+        session = await session_service.create_session(
+            app_name=APP_NAME,
+            user_id=USER_ID,
+            session_id=session_id,
+            state={"session_id": session_id},
+        )
+        await hydrate_session_from_conversations(session, session_id)
+    elif "session_id" not in (session.state or {}):
+        session.state["session_id"] = session_id
+    return session
+
+
+async def hydrate_session_from_conversations(session, session_id: str, limit: int = 40) -> None:
+    """Replay saved messages so InMemorySessionService survives page refresh/server reloads."""
+    supabase = get_supabase_client()
+    result = (
+        supabase.table("conversations")
+        .select("role, content, metadata, created_at")
+        .eq("session_id", session_id)
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    rows = list(reversed(result.data or []))
+    for row in rows:
+        content = row.get("content") or ""
+        if not content:
+            continue
+
+        role = row.get("role", "user")
+        metadata = row.get("metadata") or {}
+        if role == "user":
+            author = "user"
+            content_role = "user"
+            text = content
+        elif metadata.get("source") == "staff":
+            author = "user"
+            content_role = "user"
+            text = f"{STAFF_CONTEXT_PREFIX}{content}"
+        else:
+            author = root_agent.name
+            content_role = "model"
+            text = content
+
+        await session_service.append_event(
+            session,
+            Event(
+                author=author,
+                content=types.Content(role=content_role, parts=[types.Part(text=text)]),
+            ),
+        )
+
+
 @router.post("", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     """Send a message to the chatbot and get a response."""
@@ -52,20 +120,14 @@ async def chat(req: ChatRequest):
             asyncio.create_task(manager.broadcast_to_session(session_id, {"type": "new_message", "message": new_msg.data[0]}))
         # Add to ADK session history so bot doesn't lose context
         try:
-            from google.adk.events.event import Event
-            session = await session_service.get_session(
-                app_name="1StopSellingBot", 
-                user_id="default_user", 
-                session_id=session_id
-            )
-            if session:
-                await session_service.append_event(
-                    session,
-                    Event(
-                        author="user",
-                        content=types.Content(role="user", parts=[types.Part(text=req.message)])
-                    )
+            session = await get_or_create_session(session_id)
+            await session_service.append_event(
+                session,
+                Event(
+                    author="user",
+                    content=types.Content(role="user", parts=[types.Part(text=req.message)])
                 )
+            )
         except Exception as e:
             print(f"Warning: Failed to inject user message into ADK session: {e}")
 
@@ -76,22 +138,7 @@ async def chat(req: ChatRequest):
         )
 
     # Get or create session
-    session = await session_service.get_session(
-        app_name="1StopSellingBot",
-        user_id="default_user",
-        session_id=session_id,
-    )
-    if session is None:
-        session = await session_service.create_session(
-            app_name="1StopSellingBot",
-            user_id="default_user",
-            session_id=session_id,
-            state={"session_id": session_id},
-        )
-    else:
-        # Ensure session_id is always in state
-        if "session_id" not in (session.state or {}):
-            session.state["session_id"] = session_id
+    await get_or_create_session(session_id)
 
     # Create user message content
     user_content = types.Content(
@@ -103,7 +150,7 @@ async def chat(req: ChatRequest):
     reply_parts = []
     escalated = False
     async for event in runner.run_async(
-        user_id="default_user",
+        user_id=USER_ID,
         session_id=session_id,
         new_message=user_content,
     ):
@@ -134,8 +181,8 @@ async def reset_session(session_id: str):
     """Reset a chat session."""
     try:
         await session_service.delete_session(
-            app_name="1StopSellingBot",
-            user_id="default_user",
+            app_name=APP_NAME,
+            user_id=USER_ID,
             session_id=session_id,
         )
     except Exception:
@@ -152,8 +199,8 @@ async def reset_session(session_id: str):
 async def debug_session(session_id: str):
     """Debug endpoint to view the internal memory of ADK."""
     session = await session_service.get_session(
-        app_name="1StopSellingBot", 
-        user_id="default_user", 
+        app_name=APP_NAME,
+        user_id=USER_ID,
         session_id=session_id
     )
     if not session:

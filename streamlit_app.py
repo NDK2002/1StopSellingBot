@@ -4,9 +4,11 @@ import uuid
 
 import httpx
 import streamlit as st
+import streamlit.components.v1 as components
 
 # ── Config ────────────────────────────────────────────────────────────
 API_BASE_URL = "http://localhost:8000"
+CHAT_SESSION_STORAGE_KEY = "1stopsellingbot.chat_session_id"
 
 st.set_page_config(
     page_title="1StopSellingBot — Trợ lý mua hàng",
@@ -56,6 +58,75 @@ st.markdown("""
 
 # ── Route: /session?session_id=xxx ────────────────────────────────────
 # (routing logic at bottom of file after function definitions)
+
+
+def _set_chat_session_id(session_id: str):
+    st.query_params["chat_session_id"] = session_id
+    _sync_chat_session_storage(session_id)
+
+
+def _sync_chat_session_storage(session_id: str):
+    components.html(
+        f"""
+        <script>
+            const key = {CHAT_SESSION_STORAGE_KEY!r};
+            const sessionId = {session_id!r};
+            window.parent.localStorage.setItem(key, sessionId);
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _bootstrap_chat_session_from_storage():
+    components.html(
+        f"""
+        <script>
+            const key = {CHAT_SESSION_STORAGE_KEY!r};
+            const params = new URLSearchParams(window.parent.location.search);
+            const urlSessionId = params.get("chat_session_id");
+            const savedSessionId = window.parent.localStorage.getItem(key);
+
+            if (!urlSessionId && savedSessionId) {{
+                params.set("chat_session_id", savedSessionId);
+                const nextUrl = `${{window.parent.location.pathname}}?${{params.toString()}}${{window.parent.location.hash}}`;
+                window.parent.history.replaceState(null, "", nextUrl);
+                window.parent.location.reload();
+            }} else if (urlSessionId) {{
+                window.parent.localStorage.setItem(key, urlSessionId);
+            }}
+        </script>
+        """,
+        height=0,
+    )
+
+
+def _session_has_active_escalation(session_id: str) -> bool:
+    try:
+        resp = httpx.get(f"{API_BASE_URL}/api/escalations", timeout=5.0)
+        if resp.status_code != 200:
+            return False
+        return any(
+            esc.get("session_id") == session_id
+            and esc.get("status") in ["pending", "assigned", "in_progress"]
+            for esc in resp.json()
+        )
+    except Exception:
+        return False
+
+
+def _load_customer_chat_history(session_id: str) -> tuple[list[dict], bool]:
+    try:
+        resp = httpx.get(
+            f"{API_BASE_URL}/api/escalations/session/{session_id}/history",
+            timeout=5.0,
+        )
+        if resp.status_code != 200:
+            return [], False
+        messages = resp.json()
+        return messages, _session_has_active_escalation(session_id)
+    except Exception:
+        return [], False
 
 
 def _render_session_viewer(session_id: str):
@@ -183,13 +254,20 @@ def _render_session_viewer(session_id: str):
 
 def _render_chat_ui():
     """Main chat interface for customers."""
+    _bootstrap_chat_session_from_storage()
+
     # ── Session State
     if "session_id" not in st.session_state:
-        initial_id = str(uuid.uuid4())
+        initial_id = st.query_params.get("chat_session_id") or str(uuid.uuid4())
         st.session_state.session_id = initial_id
         st.session_state.manual_session_input = initial_id
+        _set_chat_session_id(initial_id)
     if "messages" not in st.session_state:
-        st.session_state.messages = []
+        messages, has_staff_reply = _load_customer_chat_history(st.session_state.session_id)
+        st.session_state.messages = messages
+        st.session_state.is_escalated = has_staff_reply
+    if "is_escalated" not in st.session_state:
+        st.session_state.is_escalated = False
 
     # ── Header
     st.title("🛒 1StopSellingBot")
@@ -206,15 +284,10 @@ def _render_chat_ui():
         if st.button("Load Session", use_container_width=True):
             if manual_session.strip():
                 st.session_state.session_id = manual_session.strip()
-                st.session_state.messages = []
-                try:
-                    resp = httpx.get(f"{API_BASE_URL}/api/escalations/session/{st.session_state.session_id}/history", timeout=5.0)
-                    if resp.status_code == 200 and len(resp.json()) > 0:
-                        st.session_state.is_escalated = True
-                    else:
-                        st.session_state.is_escalated = False
-                except Exception:
-                    st.session_state.is_escalated = False
+                _set_chat_session_id(st.session_state.session_id)
+                messages, has_staff_reply = _load_customer_chat_history(st.session_state.session_id)
+                st.session_state.messages = messages
+                st.session_state.is_escalated = has_staff_reply
                 st.rerun()
 
         st.divider()
@@ -228,6 +301,7 @@ def _render_chat_ui():
             new_id = str(uuid.uuid4())
             st.session_state.session_id = new_id
             st.session_state.manual_session_input = new_id
+            _set_chat_session_id(new_id)
 
         st.button("🔄 New Session", use_container_width=True, on_click=handle_new_session)
 
@@ -310,6 +384,7 @@ def _render_chat_ui():
                     data = response.json()
                     reply = data["reply"]
                     st.session_state.session_id = data.get("session_id", st.session_state.session_id)
+                    _set_chat_session_id(st.session_state.session_id)
 
                     should_rerun = False
                     if data.get("escalated"):

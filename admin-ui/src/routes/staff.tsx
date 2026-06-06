@@ -30,7 +30,7 @@ type StaffFormData = {
   name: string
   email: string
   role: string
-  skills: string
+  skills: string[]
   is_available: boolean
   telegram_chat_id: string
   max_concurrent: number
@@ -41,12 +41,20 @@ const emptyForm: StaffFormData = {
   name: '',
   email: '',
   role: 'staff',
-  skills: '',
+  skills: [],
   is_available: true,
   telegram_chat_id: '',
   max_concurrent: 3,
   password: '',
 }
+
+const STAFF_SKILL_OPTIONS = [
+  'order_support',
+  'inventory_support',
+  'technical_support',
+  'product_support',
+  'general_support',
+]
 
 function StaffPage() {
   const queryClient = useQueryClient()
@@ -111,7 +119,7 @@ function StaffPage() {
       name: staff.name,
       email: staff.email,
       role: staff.role || 'staff',
-      skills: (staff.skills || []).join(', '),
+      skills: staff.skills || [],
       is_available: staff.is_available,
       telegram_chat_id: staff.telegram_chat_id || '',
       max_concurrent: staff.max_concurrent ?? 3,
@@ -132,7 +140,7 @@ function StaffPage() {
       name: form.name,
       email: form.email,
       role: form.role,
-      skills: form.skills.split(',').map((s: string) => s.trim()).filter(Boolean),
+      skills: form.skills,
       is_available: form.is_available,
       telegram_chat_id: form.telegram_chat_id,
       max_concurrent: form.max_concurrent,
@@ -146,6 +154,15 @@ function StaffPage() {
 
   const updateField = (field: keyof StaffFormData, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const toggleSkill = (skill: string) => {
+    setForm(prev => ({
+      ...prev,
+      skills: prev.skills.includes(skill)
+        ? prev.skills.filter((item) => item !== skill)
+        : [...prev.skills, skill],
+    }))
   }
 
   // --- Render ---
@@ -248,12 +265,23 @@ function StaffPage() {
             {/* Row 4: Skills */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kỹ năng xử lý (Skills)</label>
-              <Input
-                value={form.skills}
-                onChange={(e: any) => updateField('skills', e.target.value)}
-                placeholder="chính sách, kỹ thuật, thanh toán, vận chuyển"
-              />
-              <p className="text-[11px] text-muted-foreground">Cách nhau bằng dấu phẩy. Dùng để routing escalation phù hợp.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-md border bg-background p-3">
+                {STAFF_SKILL_OPTIONS.map((skill) => (
+                  <label
+                    key={skill}
+                    className="flex items-center gap-2 text-sm font-mono cursor-pointer rounded-sm px-2 py-1.5 hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-primary"
+                      checked={form.skills.includes(skill)}
+                      onChange={() => toggleSkill(skill)}
+                    />
+                    <span>{skill}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Chọn một hoặc nhiều kỹ năng để routing escalation phù hợp.</p>
             </div>
 
             {/* Row 5: Availability */}

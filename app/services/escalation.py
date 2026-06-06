@@ -140,7 +140,7 @@ async def _find_best_staff(skill_required: str | None = None) -> dict | None:
 
     Priority:
     1. Staff with matching skill + lowest load + under max_concurrent
-    2. Staff with "quản lý" skill + lowest load + under max_concurrent
+    2. Staff with "general_support" skill + lowest load + under max_concurrent
     """
     supabase = get_supabase_client()
 
@@ -159,8 +159,8 @@ async def _find_best_staff(skill_required: str | None = None) -> dict | None:
         if skill_matches:
             return min(skill_matches, key=lambda s: s["current_load"])
 
-    # Fallback: staff with skill "quản lý"
-    manager_matches = [s for s in available if "quản lý" in (s.get("skills") or [])]
+    # Fallback: staff with skill "general_support"
+    manager_matches = [s for s in available if "general_support" in (s.get("skills") or [])]
     if manager_matches:
         return min(manager_matches, key=lambda s: s["current_load"])
 
