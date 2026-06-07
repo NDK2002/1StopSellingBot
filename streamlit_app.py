@@ -341,13 +341,16 @@ def _render_chat_ui():
         )
         st.markdown(f"""
 <style>
-[data-testid="stBottom"] {{ padding-bottom: 68px; }}
-.ex-chips {{
+[data-testid="stBottom"] {{ padding-bottom: 60px; }}
+.ex-chips-outer {{
     position: fixed; bottom: 0; left: 0; right: 0;
-    padding: 8px 16px;
-    background: #0e1117;
-    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
-    z-index: 9999;
+    background: #0e1117; z-index: 9999;
+    display: flex; justify-content: center;
+}}
+.ex-chips-inner {{
+    width: 100%; max-width: 730px;
+    padding: 8px 1rem;
+    display: flex; flex-wrap: wrap; gap: 8px;
 }}
 .ex-chip {{
     padding: 5px 13px; border-radius: 20px;
@@ -357,7 +360,7 @@ def _render_chat_ui():
 }}
 .ex-chip:hover {{ background: rgba(150,150,150,0.15); color: #fff; }}
 </style>
-<div class="ex-chips">{chips}</div>
+<div class="ex-chips-outer"><div class="ex-chips-inner">{chips}</div></div>
 """, unsafe_allow_html=True)
 
     if user_input:
