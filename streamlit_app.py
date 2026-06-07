@@ -341,20 +341,19 @@ def _render_chat_ui():
         )
         st.markdown(f"""
 <style>
-[data-testid="stBottom"] > div {{ padding-bottom: 52px; }}
+[data-testid="stBottom"] {{ padding-bottom: 68px; }}
 .ex-chips {{
-    position: fixed; bottom: 0;
-    left: 50%; transform: translateX(-50%);
-    width: min(760px, 100%); padding: 8px 16px;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    padding: 8px 16px;
     background: #0e1117;
-    display: flex; flex-wrap: wrap; gap: 8px;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
     z-index: 9999;
 }}
 .ex-chip {{
     padding: 5px 13px; border-radius: 20px;
     border: 1px solid rgba(150,150,150,0.4);
     background: transparent; color: #ccc;
-    cursor: pointer; font-size: 13px;
+    cursor: pointer; font-size: 13px; white-space: nowrap;
 }}
 .ex-chip:hover {{ background: rgba(150,150,150,0.15); color: #fff; }}
 </style>
