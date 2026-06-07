@@ -1,5 +1,6 @@
 """Streamlit Chat UI for 1StopSellingBot."""
 
+import json
 import uuid
 
 import httpx
@@ -312,13 +313,19 @@ def _render_chat_ui():
 
     render_history()
 
+    # ── Example click (via query param set by JS chip)
+    _clicked_ex = st.query_params.get("_ex")
+    if _clicked_ex:
+        del st.query_params["_ex"]
+        st.session_state.pending_message = _clicked_ex
+        st.rerun()
+
     # ── Chat Input
     pending = st.session_state.pop("pending_message", None)
     user_input = st.chat_input("Nhập câu hỏi của bạn...") or pending
 
-    # ── Example questions (shown below input when chat is empty)
+    # ── Example questions fixed below the chat input (only when chat is empty)
     if not st.session_state.messages:
-        st.markdown("**💡 Thử hỏi:**")
         examples = [
             "Áo thun nam còn hàng không?",
             "Cho tôi biết chính sách đổi trả.",
@@ -326,11 +333,33 @@ def _render_chat_ui():
             "Tạo đơn hàng cho tôi.",
             "Cho tôi gặp nhân viên.",
         ]
-        cols = st.columns(len(examples))
-        for i, ex in enumerate(examples):
-            if cols[i].button(ex, use_container_width=True, key=f"ex_{ex}"):
-                st.session_state.pending_message = ex
-                st.rerun()
+        chips = "".join(
+            f'<button class="ex-chip" onclick="var u=new URL(window.location.href);'
+            f'u.searchParams.set(\'_ex\',{json.dumps(ex)});window.location.href=u.toString();">'
+            f"{ex}</button>"
+            for ex in examples
+        )
+        st.markdown(f"""
+<style>
+[data-testid="stBottom"] > div {{ padding-bottom: 52px; }}
+.ex-chips {{
+    position: fixed; bottom: 0;
+    left: 50%; transform: translateX(-50%);
+    width: min(760px, 100%); padding: 8px 16px;
+    background: #0e1117;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    z-index: 9999;
+}}
+.ex-chip {{
+    padding: 5px 13px; border-radius: 20px;
+    border: 1px solid rgba(150,150,150,0.4);
+    background: transparent; color: #ccc;
+    cursor: pointer; font-size: 13px;
+}}
+.ex-chip:hover {{ background: rgba(150,150,150,0.15); color: #fff; }}
+</style>
+<div class="ex-chips">{chips}</div>
+""", unsafe_allow_html=True)
 
     if user_input:
         if not st.session_state.get("is_escalated"):
