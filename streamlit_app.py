@@ -260,7 +260,6 @@ def _render_chat_ui():
     if "session_id" not in st.session_state:
         initial_id = st.query_params.get("chat_session_id") or str(uuid.uuid4())
         st.session_state.session_id = initial_id
-        st.session_state.manual_session_input = initial_id
         _set_chat_session_id(initial_id)
     if "messages" not in st.session_state:
         messages, has_staff_reply = _load_customer_chat_history(st.session_state.session_id)
@@ -272,52 +271,6 @@ def _render_chat_ui():
     # ── Header
     st.title("🛒 1StopSellingBot")
     st.caption("Trợ lý mua hàng thông minh — hỏi về sản phẩm, tồn kho, chính sách, hoặc đặt hàng")
-
-    # ── Sidebar
-    with st.sidebar:
-        st.header("⚙️ Cài đặt")
-        st.text(f"Session: {st.session_state.session_id}")
-
-        st.divider()
-        st.subheader("Tải Session (Test)")
-        manual_session = st.text_input("Nhập Session ID:", key="manual_session_input")
-        if st.button("Load Session", use_container_width=True):
-            if manual_session.strip():
-                st.session_state.session_id = manual_session.strip()
-                _set_chat_session_id(st.session_state.session_id)
-                messages, has_staff_reply = _load_customer_chat_history(st.session_state.session_id)
-                st.session_state.messages = messages
-                st.session_state.is_escalated = has_staff_reply
-                st.rerun()
-
-        st.divider()
-        def handle_new_session():
-            try:
-                httpx.delete(f"{API_BASE_URL}/api/chat/sessions/{st.session_state.session_id}")
-            except Exception:
-                pass
-            st.session_state.messages = []
-            st.session_state.is_escalated = False
-            new_id = str(uuid.uuid4())
-            st.session_state.session_id = new_id
-            st.session_state.manual_session_input = new_id
-            _set_chat_session_id(new_id)
-
-        st.button("🔄 New Session", use_container_width=True, on_click=handle_new_session)
-
-        st.divider()
-        st.subheader("💡 Ví dụ câu hỏi")
-        examples = [
-            "Áo thun nam còn hàng không?",
-            "Cho tôi biết chính sách đổi trả.",
-            "Tôi muốn mua 2 cái áo thun size M.",
-            "Tạo đơn hàng cho tôi.",
-            "Cho tôi gặp nhân viên.",
-        ]
-        for ex in examples:
-            if st.button(ex, use_container_width=True, key=f"ex_{ex}"):
-                st.session_state.pending_message = ex
-                st.rerun()
 
     # ── Chat History
     @st.fragment(run_every="3s" if st.session_state.get("is_escalated") else None)
@@ -362,6 +315,22 @@ def _render_chat_ui():
     # ── Chat Input
     pending = st.session_state.pop("pending_message", None)
     user_input = st.chat_input("Nhập câu hỏi của bạn...") or pending
+
+    # ── Example questions (shown below input when chat is empty)
+    if not st.session_state.messages:
+        st.markdown("**💡 Thử hỏi:**")
+        examples = [
+            "Áo thun nam còn hàng không?",
+            "Cho tôi biết chính sách đổi trả.",
+            "Tôi muốn mua 2 cái áo thun size M.",
+            "Tạo đơn hàng cho tôi.",
+            "Cho tôi gặp nhân viên.",
+        ]
+        cols = st.columns(len(examples))
+        for i, ex in enumerate(examples):
+            if cols[i].button(ex, use_container_width=True, key=f"ex_{ex}"):
+                st.session_state.pending_message = ex
+                st.rerun()
 
     if user_input:
         if not st.session_state.get("is_escalated"):
