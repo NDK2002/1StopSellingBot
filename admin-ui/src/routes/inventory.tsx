@@ -8,12 +8,15 @@ export const Route = createFileRoute('/inventory')({
   component: InventoryPage,
 })
 
+interface Product {
+  name: string
+  category: string
+}
 interface InventoryItem {
-  product_id: string
-  product_name: string
+  low_stock_threshold: number
   quantity: number
-  reserved: number
-  status: string
+  sku: string
+  products: Product
 }
 
 function InventoryPage() {
@@ -41,10 +44,9 @@ function InventoryPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Mã Sản Phẩm</TableHead>
-                <TableHead>Tên Sản Phẩm (Nếu có)</TableHead>
+                <TableHead>Tên Sản Phẩm</TableHead>
                 <TableHead className="text-right">Có sẵn</TableHead>
-                <TableHead className="text-right">Đã giữ</TableHead>
-                <TableHead>Trạng thái</TableHead>
+                <TableHead className="text-center">Trạng thái</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -58,14 +60,13 @@ function InventoryPage() {
                 </TableRow>
               ) : (
                 inventory?.map((item) => (
-                  <TableRow key={item.product_id}>
-                    <TableCell className="font-medium">{item.product_id.split('-').shift()}</TableCell>
-                    <TableCell>{item.product_name || 'N/A'}</TableCell>
+                  <TableRow key={item.sku}>
+                    <TableCell className="font-medium">{item.sku}</TableCell>
+                    <TableCell>{item.products.name}</TableCell>
                     <TableCell className="text-right font-bold">{item.quantity}</TableCell>
-                    <TableCell className="text-right">{item.reserved}</TableCell>
-                    <TableCell>
-                      {item.status === 'low_stock' ? 
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                    <TableCell className="text-center">
+                      {item.quantity <= item.low_stock_threshold ? 
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 align-center">
                           <AlertCircle className="w-3 h-3 mr-1" /> Sắp hết
                         </span> : 
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">Bình thường</span>

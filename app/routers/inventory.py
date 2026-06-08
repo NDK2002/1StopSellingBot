@@ -54,5 +54,5 @@ async def list_inventory(low_stock_only: bool = False):
         # Use RPC or raw query for column comparison
         result = supabase.rpc("get_low_stock_inventory").execute()
     else:
-        result = supabase.table("inventory").select("*, products(name, category)").execute()
+        result = supabase.table("inventory").select("*, products!inventory_product_id_fkey(name, category)").execute()
     return result.data or []
