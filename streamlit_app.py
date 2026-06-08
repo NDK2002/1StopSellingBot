@@ -12,7 +12,7 @@ API_BASE_URL = "http://localhost:8000"
 CHAT_SESSION_STORAGE_KEY = "1stopsellingbot.chat_session_id"
 
 st.set_page_config(
-    page_title="1StopSellingBot — Trợ lý mua hàng",
+    page_title="1StopSellingBot - Trợ lý mua hàng",
     page_icon="🛒",
     layout="centered",
 )
@@ -52,6 +52,19 @@ st.markdown("""
         border-radius: 0.5rem;
         border-left: 4px solid #f59e0b;
         margin-bottom: 1rem;
+    }
+    /* Robust Sticky Header */
+    [data-testid="stVerticalBlock"] > div:has(.header-fixed-target) {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background-color: #0e1117;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #262730;
+    }
+    .header-fixed-target {
+        display: none;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -131,7 +144,7 @@ def _load_customer_chat_history(session_id: str) -> tuple[list[dict], bool]:
 
 
 def _render_session_viewer(session_id: str):
-    """Read-only session viewer — used by staff via deep link."""
+    """Read-only session viewer - used by staff via deep link."""
     st.title("📋 Lịch sử hội thoại")
 
     # Fetch escalation info
@@ -269,9 +282,48 @@ def _render_chat_ui():
     if "is_escalated" not in st.session_state:
         st.session_state.is_escalated = False
 
-    # ── Header
-    st.title("🛒 1StopSellingBot")
-    st.caption("Trợ lý mua hàng thông minh — hỏi về sản phẩm, tồn kho, chính sách, hoặc đặt hàng")
+    # ── Sidebar Header & Suggestions
+    with st.sidebar:
+        st.title("🛒 1StopSellingBot")
+        st.caption("Trợ lý mua hàng thông minh - hỏi về sản phẩm, tồn kho, chính sách, hoặc đặt hàng")
+
+        # ── Escalation Status in Sidebar
+        if st.session_state.get("is_escalated"):
+            st.divider()
+            st.success("🟢 **Đang kết nối Nhân viên**")
+            st.caption("Chế độ hỗ trợ trực tiếp đang hoạt động.")
+            if st.button("❌ Hủy yêu cầu hỗ trợ", use_container_width=True, key="cancel_support_sidebar_btn"):
+                try:
+                    resp = httpx.post(f"{API_BASE_URL}/api/escalations/session/{st.session_state.session_id}/resolve")
+                    if resp.status_code == 200:
+                        st.session_state.is_escalated = False
+                        st.success("Đã quay lại chế độ Chatbot!")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Lỗi: {e}")
+
+        st.divider()
+        
+        st.markdown("**💡 Gợi ý nhanh:**")
+        examples = [
+            "Áo thun nam còn hàng không?",
+            "Cho tôi biết chính sách đổi trả.",
+            "Tôi muốn mua 2 cái áo thun size M.",
+            "Tạo đơn hàng cho tôi.",
+            "Cho tôi gặp nhân viên.",
+        ]
+        for i, ex in enumerate(examples):
+            if st.button(ex, key=f"side_ex_{i}", use_container_width=True):
+                st.session_state.pending_message = ex
+                st.rerun()
+        
+        st.divider()
+        if st.button("🔄 Reset hội thoại", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.is_escalated = False
+            st.session_state.session_id = str(uuid.uuid4())
+            _set_chat_session_id(st.session_state.session_id)
+            st.rerun()
 
     # ── Chat History
     @st.fragment(run_every="3s" if st.session_state.get("is_escalated") else None)
@@ -313,55 +365,9 @@ def _render_chat_ui():
 
     render_history()
 
-    # ── Example click (via query param set by JS chip)
-    _clicked_ex = st.query_params.get("_ex")
-    if _clicked_ex:
-        del st.query_params["_ex"]
-        st.session_state.pending_message = _clicked_ex
-        st.rerun()
-
     # ── Chat Input
     pending = st.session_state.pop("pending_message", None)
     user_input = st.chat_input("Nhập câu hỏi của bạn...") or pending
-
-    # ── Example questions fixed below the chat input (only when chat is empty)
-    if not st.session_state.messages:
-        examples = [
-            "Áo thun nam còn hàng không?",
-            "Cho tôi biết chính sách đổi trả.",
-            "Tôi muốn mua 2 cái áo thun size M.",
-            "Tạo đơn hàng cho tôi.",
-            "Cho tôi gặp nhân viên.",
-        ]
-        chips = "".join(
-            f'<button class="ex-chip" onclick="var u=new URL(window.location.href);'
-            f'u.searchParams.set(\'_ex\',{json.dumps(ex)});window.location.href=u.toString();">'
-            f"{ex}</button>"
-            for ex in examples
-        )
-        st.markdown(f"""
-<style>
-[data-testid="stBottom"] {{ padding-bottom: 60px; }}
-.ex-chips-outer {{
-    position: fixed; bottom: 0; left: 0; right: 0;
-    background: #0e1117; z-index: 9999;
-    display: flex; justify-content: center;
-}}
-.ex-chips-inner {{
-    width: 100%; max-width: 730px;
-    padding: 8px 1rem;
-    display: flex; flex-wrap: wrap; gap: 8px;
-}}
-.ex-chip {{
-    padding: 5px 13px; border-radius: 20px;
-    border: 1px solid rgba(150,150,150,0.4);
-    background: transparent; color: #ccc;
-    cursor: pointer; font-size: 13px; white-space: nowrap;
-}}
-.ex-chip:hover {{ background: rgba(150,150,150,0.15); color: #fff; }}
-</style>
-<div class="ex-chips-outer"><div class="ex-chips-inner">{chips}</div></div>
-""", unsafe_allow_html=True)
 
     if user_input:
         if not st.session_state.get("is_escalated"):

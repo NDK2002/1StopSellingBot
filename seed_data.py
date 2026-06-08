@@ -148,13 +148,30 @@ SAMPLE_RAG_DOCS = [
 
 
 async def seed():
-    print("🌱 Seeding database...")
+    print("🌱 Cleaning existing data...")
     supabase = get_supabase_client()
+    
+    # Order matters for foreign keys
+    # Use id > 0 for integer IDs or neq for UUIDs/strings
+    supabase.table("order_items").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    supabase.table("orders").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    supabase.table("inventory").delete().neq("sku", "0").execute()
+    supabase.table("product_embeddings").delete().neq("content", "").execute()
+    supabase.table("products").delete().neq("sku", "0").execute()
+    supabase.table("rag_chunks").delete().neq("content", "").execute()
+    supabase.table("rag_documents").delete().neq("title", "").execute()
+    
+    # New deletions to avoid FK errors
+    supabase.table("conversations").delete().neq("session_id", "").execute()
+    supabase.table("escalations").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    
+    supabase.table("staff").delete().eq("email", "manager@gmail.com").execute()
 
+    print("🌱 Seeding database...")
     # 1. Create products
     print("  📦 Creating products...")
     for product in SAMPLE_PRODUCTS:
-        result = supabase.table("products").upsert(product, on_conflict="sku").execute()
+        result = supabase.table("products").insert(product).execute()
         print(f"    ✅ {product['name']} ({product['sku']})")
 
     # 2. Create inventory
@@ -162,9 +179,8 @@ async def seed():
     for inv in SAMPLE_INVENTORY:
         product = supabase.table("products").select("id").eq("sku", inv["sku"]).execute()
         if product.data:
-            supabase.table("inventory").upsert(
+            supabase.table("inventory").insert(
                 {**inv, "product_id": product.data[0]["id"]},
-                on_conflict="sku",
             ).execute()
             print(f"    ✅ {inv['sku']}: {inv['quantity']} units")
 
@@ -174,9 +190,8 @@ async def seed():
     for p in products.data:
         text = build_product_text(p)
         embedding = await create_embedding(text)
-        supabase.table("product_embeddings").upsert(
+        supabase.table("product_embeddings").insert(
             {"product_id": p["id"], "content": text, "embedding": embedding},
-            on_conflict="product_id",
         ).execute()
         print(f"    ✅ Embedded: {p['name']}")
 
@@ -200,8 +215,8 @@ async def seed():
             "name": "Manager",
             "email": "manager@gmail.com",
             "telegram_chat_id": "123",
-            "skills": "[\"order_support\", \"inventory_support\", \"technical_support\", \"product_support\", \"general_support\"]",
-            "is_available": true,
+            "skills": ["order_support", "inventory_support", "technical_support", "product_support", "general_support"],
+            "is_available": True,
             "max_concurrent": 5,
             "current_load": 0,
             "created_at": "2026-03-29 05:48:23.413863+00",
