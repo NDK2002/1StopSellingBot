@@ -1,6 +1,5 @@
 """Streamlit Chat UI for 1StopSellingBot."""
 
-import json
 import uuid
 
 import httpx
@@ -313,71 +312,9 @@ def _render_chat_ui():
 
     render_history()
 
-    # ── Example click (via query param set by JS chip)
-    _clicked_ex = st.query_params.get("_ex")
-    if _clicked_ex:
-        del st.query_params["_ex"]
-        st.session_state.pending_message = _clicked_ex
-        st.rerun()
-
     # ── Chat Input
     pending = st.session_state.pop("pending_message", None)
     user_input = st.chat_input("Nhập câu hỏi của bạn...") or pending
-
-    # ── Example questions: inject fixed chips into parent DOM via iframe JS
-    EXAMPLES = [
-        "Áo thun nam còn hàng không?",
-        "Cho tôi biết chính sách đổi trả.",
-        "Tôi muốn mua 2 cái áo thun size M.",
-        "Tạo đơn hàng cho tôi.",
-        "Cho tôi gặp nhân viên.",
-    ]
-    show_chips = not bool(st.session_state.messages)
-    if show_chips:
-        st.markdown(
-            "<style>[data-testid=\"stBottom\"]{padding-bottom:60px;}</style>",
-            unsafe_allow_html=True,
-        )
-    components.html(
-        f"""
-<script>
-(function() {{
-    var CONTAINER_ID = 'st-ex-chips';
-    var existing = window.parent.document.getElementById(CONTAINER_ID);
-    if (existing) existing.remove();
-
-    if (!{json.dumps(show_chips)}) return;
-
-    var examples = {json.dumps(EXAMPLES)};
-
-    var outer = window.parent.document.createElement('div');
-    outer.id = CONTAINER_ID;
-    outer.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#0e1117;z-index:9999;display:flex;justify-content:center;padding:8px 0;';
-
-    var inner = window.parent.document.createElement('div');
-    inner.style.cssText = 'max-width:730px;width:100%;padding:0 1rem;display:flex;flex-wrap:wrap;gap:8px;';
-
-    examples.forEach(function(ex) {{
-        var btn = window.parent.document.createElement('button');
-        btn.textContent = ex;
-        btn.style.cssText = 'padding:5px 13px;border-radius:20px;border:1px solid rgba(150,150,150,0.4);background:transparent;color:#ccc;cursor:pointer;font-size:13px;white-space:nowrap;';
-        btn.onmouseenter = function() {{ this.style.background='rgba(150,150,150,0.15)'; this.style.color='#fff'; }};
-        btn.onmouseleave = function() {{ this.style.background='transparent'; this.style.color='#ccc'; }};
-        btn.onclick = function() {{
-            var u = new URL(window.parent.location.href);
-            u.searchParams.set('_ex', ex);
-            window.parent.location.href = u.toString();
-        }};
-        inner.appendChild(btn);
-    }});
-
-    outer.appendChild(inner);
-    window.parent.document.body.appendChild(outer);
-}})();
-</script>
-""",
-        height=0,
-    )
 
     if user_input:
         if not st.session_state.get("is_escalated"):
