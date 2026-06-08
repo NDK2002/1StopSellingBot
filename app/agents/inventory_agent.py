@@ -19,7 +19,7 @@ async def check_inventory_by_sku(sku: str) -> dict:
     supabase = get_supabase_client()
 
     result = supabase.table("inventory").select(
-        "*, products(name, price, category)"
+        "*, products!inventory_sku_fkey(name, price, category)"
     ).eq("sku", sku).execute()
 
     if not result.data:
