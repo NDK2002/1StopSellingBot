@@ -1,5 +1,6 @@
 """Streamlit Chat UI for 1StopSellingBot."""
 
+import json
 import uuid
 
 import httpx
@@ -260,7 +261,6 @@ def _render_chat_ui():
     if "session_id" not in st.session_state:
         initial_id = st.query_params.get("chat_session_id") or str(uuid.uuid4())
         st.session_state.session_id = initial_id
-        st.session_state.manual_session_input = initial_id
         _set_chat_session_id(initial_id)
     if "messages" not in st.session_state:
         messages, has_staff_reply = _load_customer_chat_history(st.session_state.session_id)
@@ -272,52 +272,6 @@ def _render_chat_ui():
     # ── Header
     st.title("🛒 1StopSellingBot")
     st.caption("Trợ lý mua hàng thông minh — hỏi về sản phẩm, tồn kho, chính sách, hoặc đặt hàng")
-
-    # ── Sidebar
-    with st.sidebar:
-        st.header("⚙️ Cài đặt")
-        st.text(f"Session: {st.session_state.session_id}")
-
-        st.divider()
-        st.subheader("Tải Session (Test)")
-        manual_session = st.text_input("Nhập Session ID:", key="manual_session_input")
-        if st.button("Load Session", use_container_width=True):
-            if manual_session.strip():
-                st.session_state.session_id = manual_session.strip()
-                _set_chat_session_id(st.session_state.session_id)
-                messages, has_staff_reply = _load_customer_chat_history(st.session_state.session_id)
-                st.session_state.messages = messages
-                st.session_state.is_escalated = has_staff_reply
-                st.rerun()
-
-        st.divider()
-        def handle_new_session():
-            try:
-                httpx.delete(f"{API_BASE_URL}/api/chat/sessions/{st.session_state.session_id}")
-            except Exception:
-                pass
-            st.session_state.messages = []
-            st.session_state.is_escalated = False
-            new_id = str(uuid.uuid4())
-            st.session_state.session_id = new_id
-            st.session_state.manual_session_input = new_id
-            _set_chat_session_id(new_id)
-
-        st.button("🔄 New Session", use_container_width=True, on_click=handle_new_session)
-
-        st.divider()
-        st.subheader("💡 Ví dụ câu hỏi")
-        examples = [
-            "Áo thun nam còn hàng không?",
-            "Cho tôi biết chính sách đổi trả.",
-            "Tôi muốn mua 2 cái áo thun size M.",
-            "Tạo đơn hàng cho tôi.",
-            "Cho tôi gặp nhân viên.",
-        ]
-        for ex in examples:
-            if st.button(ex, use_container_width=True, key=f"ex_{ex}"):
-                st.session_state.pending_message = ex
-                st.rerun()
 
     # ── Chat History
     @st.fragment(run_every="3s" if st.session_state.get("is_escalated") else None)
@@ -359,9 +313,55 @@ def _render_chat_ui():
 
     render_history()
 
+    # ── Example click (via query param set by JS chip)
+    _clicked_ex = st.query_params.get("_ex")
+    if _clicked_ex:
+        del st.query_params["_ex"]
+        st.session_state.pending_message = _clicked_ex
+        st.rerun()
+
     # ── Chat Input
     pending = st.session_state.pop("pending_message", None)
     user_input = st.chat_input("Nhập câu hỏi của bạn...") or pending
+
+    # ── Example questions fixed below the chat input (only when chat is empty)
+    if not st.session_state.messages:
+        examples = [
+            "Áo thun nam còn hàng không?",
+            "Cho tôi biết chính sách đổi trả.",
+            "Tôi muốn mua 2 cái áo thun size M.",
+            "Tạo đơn hàng cho tôi.",
+            "Cho tôi gặp nhân viên.",
+        ]
+        chips = "".join(
+            f'<button class="ex-chip" onclick="var u=new URL(window.location.href);'
+            f'u.searchParams.set(\'_ex\',{json.dumps(ex)});window.location.href=u.toString();">'
+            f"{ex}</button>"
+            for ex in examples
+        )
+        st.markdown(f"""
+<style>
+[data-testid="stBottom"] {{ padding-bottom: 60px; }}
+.ex-chips-outer {{
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #0e1117; z-index: 9999;
+    display: flex; justify-content: center;
+}}
+.ex-chips-inner {{
+    width: 100%; max-width: 730px;
+    padding: 8px 1rem;
+    display: flex; flex-wrap: wrap; gap: 8px;
+}}
+.ex-chip {{
+    padding: 5px 13px; border-radius: 20px;
+    border: 1px solid rgba(150,150,150,0.4);
+    background: transparent; color: #ccc;
+    cursor: pointer; font-size: 13px; white-space: nowrap;
+}}
+.ex-chip:hover {{ background: rgba(150,150,150,0.15); color: #fff; }}
+</style>
+<div class="ex-chips-outer"><div class="ex-chips-inner">{chips}</div></div>
+""", unsafe_allow_html=True)
 
     if user_input:
         if not st.session_state.get("is_escalated"):

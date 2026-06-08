@@ -52,3 +52,8 @@ dist-ssr
 *.sw?
 .tanstack
 note.txt
+.claude/skills/pptx/
+.claude/worktrees/
+workflow.jpg
+.understand-anything
+workspace/
