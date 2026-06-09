@@ -242,6 +242,27 @@ async def reassign_escalation(escalation_id: str, assign_data: EscalationAssign)
     return {"success": True, "message": f"Escalation reassigned to {new_staff['name']}"}
 
 
+@router.post("/session/{session_id}/resolve")
+async def resolve_by_session(session_id: str):
+    """Resolve the latest active escalation for a session ID (Customer cancel support)."""
+    supabase = get_supabase_client()
+    # Get latest active escalation (pending, assigned, or in_progress)
+    result = (
+        supabase.table("escalations")
+        .select("id")
+        .eq("session_id", session_id)
+        .in_("status", ["pending", "assigned", "in_progress"])
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return {"success": True, "message": "No active escalation found"}
+    
+    escalation_id = result.data[0]["id"]
+    return await resolve(escalation_id, update=EscalationUpdate(staff_notes="Customer cancelled support"))
+
+
 @router.get("/session/{session_id}/history")
 async def get_session_history(session_id: str, limit: int = 100):
     """Get conversation history for a session (used by staff during takeover)."""

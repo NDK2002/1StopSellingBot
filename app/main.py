@@ -66,6 +66,9 @@ app.include_router(escalation.router)
 # Phase 3 routers
 app.include_router(auth.router)
 
+# WebSocket router
+app.include_router(ws.router)
+
 
 @app.get("/")
 async def root():

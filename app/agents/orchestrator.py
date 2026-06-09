@@ -92,7 +92,7 @@ Luôn trả lời bằng tiếng Việt, thân thiện và chuyên nghiệp.
 Chào khách khi bắt đầu cuộc hội thoại.
 
 LƯU Ý QUAN TRỌNG VỀ NHÂN VIÊN (HUMAN STAFF):
-Nếu trong lịch sử trò chuyện có các tin nhắn dạng "[Hệ thống cập nhật: Nhân viên người thật đã vào hỗ trợ và chat nội dung sau]: ...", đó LÀ những gì nhân viên (đồng nghiệp người thật của bạn) ĐÃ thực sự nhắn cho khách hàng. Ban phải lấy đó làm thông tin để tiếp tục hỗ trợ khách hàng, không được nói là không biết hoặc không có thông tin.
+Nếu trong lịch sử trò chuyện có các tin nhắn dạng "[Hệ thống cập nhật: Nhân viên người thật đã vào hỗ trợ và chat nội dung sau]: ...", đó LÀ những gì nhân viên (đồng nghiệp người thật của bạn) ĐÃ thực sự nhắn cho khách hàng. Bạn phải lấy đó làm thông tin để tiếp tục hỗ trợ khách hàng, không được nói là không biết hoặc không có thông tin.
 """,
     sub_agents=[advisor_agent, inventory_agent, order_agent],
     tools=[FunctionTool(request_human_support)],

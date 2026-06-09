@@ -63,7 +63,7 @@ async def check_inventory_by_name(product_name: str) -> dict:
     # Search products by name (case-insensitive partial match)
     products = supabase.table("products").select("id, name, sku").ilike(
         "name", f"%{product_name}%"
-    ).execute()
+    ).eq("is_active", True).execute()
 
     if not products.data:
         return {

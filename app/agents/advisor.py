@@ -24,7 +24,7 @@ async def search_product_info(query: str) -> dict:
     products_info = []
     supabase = get_supabase_client()
     for r in results:
-        product = supabase.table("products").select("*").eq("id", r["product_id"]).execute()
+        product = supabase.table("products").select("*").eq("id", r["product_id"]).eq("is_active", True).execute()
         if product.data:
             p = product.data[0]
             products_info.append({
@@ -36,6 +36,9 @@ async def search_product_info(query: str) -> dict:
                 "attributes": p.get("attributes", {}),
                 "similarity": round(r["similarity"], 3),
             })
+
+    if not products_info:
+        return {"found": False, "message": "Không tìm thấy sản phẩm phù hợp."}
 
     return {"found": True, "products": products_info}
 
