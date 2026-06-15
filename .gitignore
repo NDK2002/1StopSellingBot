@@ -57,3 +57,7 @@ note.txt
 workflow.jpg
 .understand-anything
 workspace/
+docs/superpowers
+docs/erd.md
+docs/*.py
+supabase/.temp
