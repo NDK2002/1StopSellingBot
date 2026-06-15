@@ -2,7 +2,7 @@
 
 Chatbot bán hàng AI đa tác nhân (multi-agent) tích hợp tìm kiếm ngữ nghĩa (RAG), quản lý đơn hàng, và chuyển tiếp nhân viên hỗ trợ theo thời gian thực.
 
-![Architecture](workflow.jpg)
+![Architecture](workflow.png)
 
 ---
 
